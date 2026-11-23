@@ -1,0 +1,31 @@
+{{ define "main" }}
+<article class="prose">
+  <div class="hero">
+    <img src="{{ "logo.png" | relURL }}" alt="calico-plumber" class="hero-logo" />
+    <div>
+      <h1>{{ .Title }}</h1>
+      <p class="hero-desc">{{ .Params.description }}</p>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <a class="doc-card" href="{{ "principles/" | relURL }}">
+      <div class="card-badge badge-blue">ARCHITECTURE</div>
+      <h3>核心实现原理</h3>
+      <p>深入剖析 Calico BGP/IPIP/VXLAN 模式感知、IPAM 位图映射、无侵入 Pod Netns 排障、多跳 TraceFlow 与 eBPF / Legacy 双引擎流量采集原理。</p>
+    </a>
+    <a class="doc-card" href="{{ "performance/" | relURL }}">
+      <div class="card-badge badge-green">BENCHMARK</div>
+      <h3>性能与网络影响评估</h3>
+      <p>量化评估内核热路径开销、用户态轮询 CPU/内存实测占用、管理面带宽、抓包安全熔断保护以及面向大规模集群的调优参数。</p>
+    </a>
+    <a class="doc-card" href="{{ "tutorials/" | relURL }}">
+      <div class="card-badge badge-violet">PLAYBOOK</div>
+      <h3>常用使用教程与实战</h3>
+      <p>涵盖快速部署、eBPF/Legacy 引擎切换，以及跨节点不通、Service DNAT 异常、重传高延迟、无 Shell 抓包等 6 大实战排障剧本。</p>
+    </a>
+  </div>
+
+  {{ .Content }}
+</article>
+{{ end }}

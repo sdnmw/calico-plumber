@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calico-netdiag-server
+  namespace: calico-netdiag
+  labels:
+    app.kubernetes.io/name: calico-netdiag
+    app.kubernetes.io/component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: calico-netdiag
+      app.kubernetes.io/component: server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: calico-netdiag
+        app.kubernetes.io/component: server
+    spec:
+      serviceAccountName: calico-netdiag-server
+      containers:
+        - name: server
+          image: docker.io/lammw12/calico-netdiag-server:v0.1.0
+          imagePullPolicy: Always
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: calico-netdiag-server
+  namespace: calico-netdiag
+  labels:
+    app.kubernetes.io/name: calico-netdiag
+    app.kubernetes.io/component: server
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: calico-netdiag
+    app.kubernetes.io/component: server
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 31880

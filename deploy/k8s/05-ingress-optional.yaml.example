@@ -1,0 +1,26 @@
+# Optional Ingress exposure template for calico-plumber
+# Replace ingressClassName & host with your cluster's Ingress controller and domain.
+# Note: Live TCPdump uses WebSocket (/api/v1/diag/tcpdump/ws), so ensure your Ingress
+# controller allows WebSocket upgrades and extended read/send timeouts.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: calico-plumber
+  namespace: calico-netdiag
+  annotations:
+    # For ingress-nginx (uncomment if using NGINX Ingress Controller):
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: calico-plumber.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: calico-netdiag-server
+                port:
+                  number: 8080

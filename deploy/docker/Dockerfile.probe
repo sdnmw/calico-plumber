@@ -1,0 +1,19 @@
+# Multi-stage build for calico-plumber Lightweight Health Probe DaemonSet
+ARG GO_IMAGE=golang:1.26-bookworm
+ARG RUNTIME_IMAGE=alpine:3.20
+
+FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS builder
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=${GOPROXY}
+WORKDIR /src
+COPY go.mod go.sum ./
+COPY cmd/probe/ ./cmd/probe/
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/calico-netdiag-probe ./cmd/probe
+
+FROM ${RUNTIME_IMAGE}
+RUN apk add --no-cache ca-certificates
+COPY --from=builder /out/calico-netdiag-probe /usr/local/bin/calico-netdiag-probe
+EXPOSE 8099
+ENTRYPOINT ["/usr/local/bin/calico-netdiag-probe"]

@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: calico-netdiag-server
+  namespace: calico-netdiag
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: calico-netdiag-readonly
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "namespaces", "pods", "services", "endpoints", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["crd.projectcalico.org"]
+    resources:
+      - ippools
+      - ipamblocks
+      - blockaffinities
+      - ipamhandles
+      - bgpconfigurations
+      - bgppeers
+      - felixconfigurations
+      - caliconodestatuses
+      - networkpolicies
+      - globalnetworkpolicies
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["operator.tigera.io"]
+    resources: ["installations", "tigerastatuses"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: calico-netdiag-readonly
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: calico-netdiag-readonly
+subjects:
+  - kind: ServiceAccount
+    name: calico-netdiag-server
+    namespace: calico-netdiag

@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: calico-netdiag-agent
+  namespace: calico-netdiag
+  labels:
+    app.kubernetes.io/name: calico-netdiag
+    app.kubernetes.io/component: agent
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: calico-netdiag
+      app.kubernetes.io/component: agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: calico-netdiag
+        app.kubernetes.io/component: agent
+    spec:
+      hostNetwork: true
+      hostPID: true
+      dnsPolicy: ClusterFirstWithHostNet
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: agent
+          image: docker.io/lammw12/calico-netdiag-agent:v0.1.0
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SERVER_URL
+              value: "http://calico-netdiag-server.calico-netdiag.svc.cluster.local:8080"
+            - name: TELEMETRY_MODE
+              value: "auto"
+          ports:
+            - name: agent-http
+              containerPort: 9191
+              hostPort: 9191
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9191
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          volumeMounts:
+            - name: var-run-calico
+              mountPath: /var/run/calico
+              readOnly: true
+            - name: sys-fs-bpf
+              mountPath: /sys/fs/bpf
+            - name: sys-kernel-btf
+              mountPath: /sys/kernel/btf
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: var-run-calico
+          hostPath:
+            path: /var/run/calico
+            type: DirectoryOrCreate
+        - name: sys-fs-bpf
+          hostPath:
+            path: /sys/fs/bpf
+            type: DirectoryOrCreate
+        - name: sys-kernel-btf
+          hostPath:
+            path: /sys/kernel/btf
+            type: DirectoryOrCreate

@@ -1,0 +1,28 @@
+# Frontend dependencies & build artifacts
+web/node_modules/
+web/dist/
+web/tsconfig.tsbuildinfo
+
+# Hugo build artifacts
+docs-hugo/.hugo_build.lock
+docs-hugo/public/
+docs-hugo/resources/
+
+# Embedded static assets built during CI / Docker multi-stage build
+cmd/server/ui/*
+!cmd/server/ui/.gitkeep
+cmd/server/docs/*
+!cmd/server/docs/.gitkeep
+
+# Private cluster manifests & secrets
+deploy/k8s/05-ingress-everoute.yaml
+kubeconfig
+*.kubeconfig
+.env
+.env.*
+
+# Captures, logs & OS files
+*.pcap
+*.log
+.DS_Store
+Thumbs.db

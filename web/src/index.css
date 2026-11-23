@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-slate-200 dark:border-slate-800;
+  }
+}
+
+/* Crisp slim scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 dark:bg-slate-700 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400 dark:bg-slate-600;
+}
+
+/* React Flow theme integration */
+.react-flow__node {
+  cursor: pointer;
+}
+.react-flow__controls {
+  @apply !bg-white dark:!bg-slate-900 !border !border-slate-200 dark:!border-slate-800 !shadow-sm !rounded-lg overflow-hidden;
+}
+.react-flow__controls-button {
+  @apply !bg-white dark:!bg-slate-900 !text-slate-600 dark:!text-slate-300 !border-b !border-slate-200 dark:!border-slate-800 hover:!bg-slate-100 dark:hover:!bg-slate-800;
+}
+.react-flow__minimap {
+  @apply !bg-white/90 dark:!bg-slate-900/90 !border !border-slate-200 dark:!border-slate-800 !rounded-lg !shadow-sm;
+}
+
+@keyframes flowDash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+.animate-flow-dash {
+  stroke-dasharray: 6 6;
+  animation: flowDash 0.9s linear infinite;
+}

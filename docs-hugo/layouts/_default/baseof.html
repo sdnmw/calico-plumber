@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ if .IsHome }}{{ .Site.Title }}{{ else }}{{ .Title }} · {{ .Site.Title }}{{ end }}</title>
+  <link rel="icon" type="image/x-icon" href="{{ "favicon.ico" | relURL }}" />
+  <link rel="icon" type="image/png" sizes="64x64" href="{{ "favicon-64.png" | relURL }}" />
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ "favicon-32.png" | relURL }}" />
+  <link rel="stylesheet" href="{{ "css/docs.css" | relURL }}" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="{{ "" | relURL }}">
+        <img src="{{ "logo.png" | relURL }}" alt="calico-plumber Logo" class="brand-logo" />
+        <div>
+          <div class="brand-title">calico-plumber Docs</div>
+          <div class="brand-sub">Calico 网络诊断与流量可视化技术文档</div>
+        </div>
+      </a>
+      <div class="topbar-actions">
+        <a class="btn-console" href="/">← 返回诊断控制台</a>
+        <button id="theme-toggle" class="btn-icon" title="切换明暗主题">◐</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="nav-group-title">文档目录</div>
+      <nav class="nav-list">
+        <a class="nav-item {{ if .IsHome }}active{{ end }}" href="{{ "" | relURL }}">
+          <span class="nav-dot"></span>文档总览
+        </a>
+        <a class="nav-item {{ if eq .RelPermalink "/docs/principles/" }}active{{ end }}" href="{{ "principles/" | relURL }}">
+          <span class="nav-dot"></span>核心实现原理
+        </a>
+        <a class="nav-item {{ if eq .RelPermalink "/docs/performance/" }}active{{ end }}" href="{{ "performance/" | relURL }}">
+          <span class="nav-dot"></span>性能与网络影响评估
+        </a>
+        <a class="nav-item {{ if eq .RelPermalink "/docs/tutorials/" }}active{{ end }}" href="{{ "tutorials/" | relURL }}">
+          <span class="nav-dot"></span>常用使用教程与实战
+        </a>
+      </nav>
+      <div class="sidebar-meta">
+        <div class="meta-row"><span>引擎模式</span><code>eBPF / Legacy</code></div>
+        <div class="meta-row"><span>镜像仓库</span><code>docker.io/lammw12</code></div>
+        <div class="meta-row"><span>构建框架</span><code>Hugo Static</code></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      {{ block "main" . }}{{ end }}
+    </main>
+
+    {{ if and (not .IsHome) .TableOfContents }}
+    <aside class="toc">
+      <div class="toc-title">本页大纲</div>
+      {{ .TableOfContents }}
+    </aside>
+    {{ end }}
+  </div>
+
+  <script>
+    (function() {
+      const saved = localStorage.getItem('calico-plumber-docs-theme');
+      if (saved === 'dark') document.documentElement.classList.add('dark');
+      const btn = document.getElementById('theme-toggle');
+      if (btn) {
+        btn.addEventListener('click', function() {
+          const isDark = document.documentElement.classList.toggle('dark');
+          localStorage.setItem('calico-plumber-docs-theme', isDark ? 'dark' : 'light');
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

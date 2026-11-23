@@ -1,0 +1,10 @@
+{{ define "main" }}
+<article class="prose">
+  <div class="page-head">
+    {{ with .Params.badge }}<span class="card-badge badge-blue">{{ . }}</span>{{ end }}
+    <h1>{{ .Title }}</h1>
+    {{ with .Params.description }}<p class="page-lead">{{ . }}</p>{{ end }}
+  </div>
+  {{ .Content }}
+</article>
+{{ end }}

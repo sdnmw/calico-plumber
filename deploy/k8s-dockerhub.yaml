@@ -1,0 +1,270 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: calico-netdiag
+  labels:
+    app.kubernetes.io/part-of: calico-netdiag
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: calico-netdiag-server
+  namespace: calico-netdiag
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: calico-netdiag-readonly
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "namespaces", "pods", "services", "endpoints", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["crd.projectcalico.org"]
+    resources:
+      - ippools
+      - ipamblocks
+      - blockaffinities
+      - ipamhandles
+      - bgpconfigurations
+      - bgppeers
+      - felixconfigurations
+      - caliconodestatuses
+      - networkpolicies
+      - globalnetworkpolicies
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["operator.tigera.io"]
+    resources: ["installations", "tigerastatuses"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: calico-netdiag-readonly
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: calico-netdiag-readonly
+subjects:
+  - kind: ServiceAccount
+    name: calico-netdiag-server
+    namespace: calico-netdiag
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calico-netdiag-server
+  namespace: calico-netdiag
+  labels:
+    app.kubernetes.io/name: calico-netdiag
+    app.kubernetes.io/component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: calico-netdiag
+      app.kubernetes.io/component: server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: calico-netdiag
+        app.kubernetes.io/component: server
+    spec:
+      serviceAccountName: calico-netdiag-server
+      containers:
+        - name: server
+          image: docker.io/lammw12/calico-netdiag-server:v0.1.0
+          imagePullPolicy: Always
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: calico-netdiag-server
+  namespace: calico-netdiag
+  labels:
+    app.kubernetes.io/name: calico-netdiag
+    app.kubernetes.io/component: server
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: calico-netdiag
+    app.kubernetes.io/component: server
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 31880
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: calico-netdiag-agent
+  namespace: calico-netdiag
+  labels:
+    app.kubernetes.io/name: calico-netdiag
+    app.kubernetes.io/component: agent
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: calico-netdiag
+      app.kubernetes.io/component: agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: calico-netdiag
+        app.kubernetes.io/component: agent
+    spec:
+      hostNetwork: true
+      hostPID: true
+      dnsPolicy: ClusterFirstWithHostNet
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: agent
+          image: docker.io/lammw12/calico-netdiag-agent:v0.1.0
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SERVER_URL
+              value: "http://calico-netdiag-server.calico-netdiag.svc.cluster.local:8080"
+            - name: TELEMETRY_MODE
+              value: "auto"
+          ports:
+            - name: agent-http
+              containerPort: 9191
+              hostPort: 9191
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9191
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          volumeMounts:
+            - name: var-run-calico
+              mountPath: /var/run/calico
+              readOnly: true
+            - name: sys-fs-bpf
+              mountPath: /sys/fs/bpf
+            - name: sys-kernel-btf
+              mountPath: /sys/kernel/btf
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: var-run-calico
+          hostPath:
+            path: /var/run/calico
+            type: DirectoryOrCreate
+        - name: sys-fs-bpf
+          hostPath:
+            path: /sys/fs/bpf
+            type: DirectoryOrCreate
+        - name: sys-kernel-btf
+          hostPath:
+            path: /sys/kernel/btf
+            type: DirectoryOrCreate
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: calico-netdiag-probe
+  namespace: calico-netdiag
+  labels:
+    app.kubernetes.io/name: calico-netdiag
+    app.kubernetes.io/component: probe
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: calico-netdiag
+      app.kubernetes.io/component: probe
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: calico-netdiag
+        app.kubernetes.io/component: probe
+    spec:
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: probe
+          image: docker.io/lammw12/calico-netdiag-probe:v0.1.0
+          imagePullPolicy: Always
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          ports:
+            - name: probe-http
+              containerPort: 8099
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 8099
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+---

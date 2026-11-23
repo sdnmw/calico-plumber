@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: calico-netdiag-probe
+  namespace: calico-netdiag
+  labels:
+    app.kubernetes.io/name: calico-netdiag
+    app.kubernetes.io/component: probe
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: calico-netdiag
+      app.kubernetes.io/component: probe
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: calico-netdiag
+        app.kubernetes.io/component: probe
+    spec:
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: probe
+          image: docker.io/lammw12/calico-netdiag-probe:v0.1.0
+          imagePullPolicy: Always
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          ports:
+            - name: probe-http
+              containerPort: 8099
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 8099
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi

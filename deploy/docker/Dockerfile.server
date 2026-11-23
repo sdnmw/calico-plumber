@@ -1,0 +1,41 @@
+# Multi-stage build for calico-plumber Server (React SPA + Hugo Docs + Go binary)
+ARG NODE_IMAGE=node:22-alpine
+ARG HUGO_IMAGE=alpine:3.20
+ARG GO_IMAGE=golang:1.26-bookworm
+ARG RUNTIME_IMAGE=alpine:3.20
+
+# Stage 1: Build React + Vite Web UI
+FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS web-builder
+WORKDIR /src/web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
+# Stage 2: Build Hugo documentation site (/docs/)
+FROM --platform=$BUILDPLATFORM ${HUGO_IMAGE} AS docs-builder
+RUN apk add --no-cache hugo
+WORKDIR /src/docs-hugo
+COPY docs-hugo/ ./
+RUN hugo --minify --baseURL /docs/ -d /out/docs
+
+# Stage 3: Build Go Server binary with embedded UI & Hugo Docs
+FROM --platform=$BUILDPLATFORM ${GO_IMAGE} AS go-builder
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=${GOPROXY}
+WORKDIR /src
+COPY go.mod go.sum ./
+COPY cmd/ ./cmd/
+COPY pkg/ ./pkg/
+COPY --from=web-builder /src/web/dist/ ./cmd/server/ui/
+COPY --from=docs-builder /out/docs/ ./cmd/server/docs/
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/calico-netdiag-server ./cmd/server
+
+# Stage 4: Minimal runtime image
+FROM ${RUNTIME_IMAGE}
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=go-builder /out/calico-netdiag-server /usr/local/bin/calico-netdiag-server
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/calico-netdiag-server"]

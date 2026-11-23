@@ -1,0 +1,10 @@
+web/node_modules
+web/dist
+web/tsconfig.tsbuildinfo
+docs/assets
+docs-hugo/public
+docs-hugo/.hugo_build.lock
+.git
+.DS_Store
+*.log
+*.pcap
