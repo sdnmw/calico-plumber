@@ -1,0 +1,15 @@
+# Experiment 5: Misconfigured Service targetPort (points to closed port 9999 instead of 8080 -> immediate TCP RST)
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab-backend
+  namespace: calico-plumber-lab
+  labels:
+    app: lab-backend
+spec:
+  selector:
+    app: lab-backend
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 9999

@@ -1,0 +1,30 @@
+# Experiment 1: Inject 250ms latency (+/- 50ms jitter) on lab-backend -> lab-client traffic
+# Note: Selecting lab-backend with target=lab-client matches lab-client's preserved Pod IP
+# even when lab-client calls lab-backend via Kubernetes Service ClusterIP (after kube-proxy DNAT),
+# while leaving kubelet readinessProbes unaffected.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: lab-exp1-network-delay
+  namespace: calico-plumber-lab
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - calico-plumber-lab
+    labelSelectors:
+      app: lab-backend
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - calico-plumber-lab
+      labelSelectors:
+        app: lab-client
+  delay:
+    latency: "250ms"
+    jitter: "50ms"
+    correlation: "25"
+  duration: "10m"

@@ -22,8 +22,8 @@
   <a href="#一项目功能简介">项目简介</a> ·
   <a href="#二快速部署方式">部署方式</a> ·
   <a href="#三六大核心功能与演示">六大核心功能（含 GIF）</a> ·
-  <a href="#四内置技术文档与性能说明">文档与性能评估</a> ·
-  <a href="#五项目目录结构">目录结构</a>
+  <a href="docs/chaos-network-lab.md">Chaos Mesh 故障注入排障实验</a> ·
+  <a href="#四故障注入排障实战与内置文档">文档与性能评估</a>
 </p>
 
 ---
@@ -235,7 +235,16 @@ kubectl delete -f https://raw.githubusercontent.com/sdnmw/calico-plumber/main/de
 
 ---
 
-## 四、内置技术文档与性能说明
+## 四、故障注入排障实战与内置文档
+
+### Chaos Mesh 容器网络故障注入实战手册
+
+仓库在 [`docs/`](docs/chaos-network-lab.md) 目录提供了一套完整的 **Chaos Mesh + Kubernetes/Calico 故障注入与排障实验手册**（附可一键部署的靶场与故障 YAML 清单及 **Chaos Mesh Web UI + calico-plumber Web UI 双视角实机截图**）：
+
+- 📖 完整实验指南：[**docs/chaos-network-lab.md**](docs/chaos-network-lab.md)
+- 🧪 实验覆盖 5 大经典故障：**跨节点网络高延迟与抖动**（`NetworkChaos: delay`）、**35% 高丢包与 TCP 重传风暴**（`NetworkChaos: loss`）、**跨节点双向网络分区**（`NetworkChaos: partition`）、**NetworkPolicy 误配精准端口阻断**、**Service `targetPort` 错配秒回 `RST`**。
+
+### 内置技术文档与性能说明
 
 点击 Web 控制台右上角 **「文档」** 按钮即可访问内置的 Hugo 技术文档站（`/docs/`），包含三篇深度文档：
 
@@ -269,7 +278,10 @@ calico-plumber/
 │   └── server/          # 流量聚合环、Agent 客户端、TraceFlow 拼接器、全局健康体检器、REST/WS API
 ├── web/                 # React 19 + TypeScript + Vite + Tailwind + React Flow 前端工程
 ├── docs-hugo/           # Hugo 静态技术文档源码（嵌入至 /docs/）
-├── docs/assets/         # README 功能演示 GIF 动图
+├── docs/
+│   ├── assets/          # README 6 大功能演示 GIF 动图
+│   ├── chaos-network-lab.md  # Chaos Mesh + Calico 五大经典网络故障注入与排障实战手册
+│   └── lab/             # 故障注入实验 YAML 清单与 Chaos Mesh / calico-plumber 双界面截图
 ├── deploy/
 │   ├── docker/          # 多阶段 Dockerfile（Server / Agent / Probe）
 │   ├── k8s/             # 分模块 Kubernetes 部署清单与 Ingress 模板

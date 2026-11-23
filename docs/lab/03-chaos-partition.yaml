@@ -1,0 +1,23 @@
+# Experiment 3: Bidirectional network partition between lab-backend and lab-client
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: lab-exp3-network-partition
+  namespace: calico-plumber-lab
+spec:
+  action: partition
+  mode: all
+  selector:
+    namespaces:
+      - calico-plumber-lab
+    labelSelectors:
+      app: lab-backend
+  direction: both
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - calico-plumber-lab
+      labelSelectors:
+        app: lab-client
+  duration: "10m"

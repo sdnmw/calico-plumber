@@ -1,0 +1,21 @@
+# Experiment 4: Misconfigured NetworkPolicy (allows port 8443 instead of 8080, silently dropping lab-client -> lab-backend:8080)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lab-exp4-deny-wrong-port
+  namespace: calico-plumber-lab
+spec:
+  podSelector:
+    matchLabels:
+      app: lab-backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: lab-client
+      ports:
+        # Intentional misconfiguration: allows 8443 while lab-backend actually listens on 8080
+        - protocol: TCP
+          port: 8443

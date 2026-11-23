@@ -1,0 +1,26 @@
+# Experiment 2: Inject 35% packet loss on lab-backend -> lab-client traffic to trigger TCP retransmissions
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: lab-exp2-packet-loss
+  namespace: calico-plumber-lab
+spec:
+  action: loss
+  mode: all
+  selector:
+    namespaces:
+      - calico-plumber-lab
+    labelSelectors:
+      app: lab-backend
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - calico-plumber-lab
+      labelSelectors:
+        app: lab-client
+  loss:
+    loss: "35"
+    correlation: "25"
+  duration: "10m"
