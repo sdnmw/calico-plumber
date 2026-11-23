@@ -242,7 +242,7 @@ kubectl delete -f https://raw.githubusercontent.com/sdnmw/calico-plumber/main/de
 仓库在 [`docs/`](docs/chaos-network-lab.md) 目录提供了一套完整的 **Chaos Mesh + Kubernetes/Calico 故障注入与排障实验手册**（附可一键部署的靶场与故障 YAML 清单及 **Chaos Mesh Web UI + calico-plumber Web UI 双视角实机截图**）：
 
 - 📖 完整实验指南：[**docs/chaos-network-lab.md**](docs/chaos-network-lab.md)
-- 🧪 实验覆盖 5 大经典故障：**跨节点网络高延迟与抖动**（`NetworkChaos: delay`）、**35% 高丢包与 TCP 重传风暴**（`NetworkChaos: loss`）、**跨节点双向网络分区**（`NetworkChaos: partition`）、**NetworkPolicy 误配精准端口阻断**、**Service `targetPort` 错配秒回 `RST`**。
+- 🧪 实验覆盖 6 大经典故障：**跨节点网络高延迟与抖动**（`NetworkChaos: delay`）、**35% 高丢包与 TCP 重传风暴**（`NetworkChaos: loss`）、**跨节点双向网络分区**（`NetworkChaos: partition`）、**NetworkPolicy 误配精准端口阻断**、**Service `targetPort` 错配秒回 `RST`**，以及 **外部旧内核 `tcp_tw_recycle=1` + Calico SNAT 引发的“Pod 能通、同节点 Node 不通（PAWS 丢包）”**。
 
 ### 内置技术文档与性能说明
 
@@ -280,7 +280,7 @@ calico-plumber/
 ├── docs-hugo/           # Hugo 静态技术文档源码（嵌入至 /docs/）
 ├── docs/
 │   ├── assets/          # README 6 大功能演示 GIF 动图
-│   ├── chaos-network-lab.md  # Chaos Mesh + Calico 五大经典网络故障注入与排障实战手册
+│   ├── chaos-network-lab.md  # Chaos Mesh + Calico 六大经典网络故障注入与排障实战手册
 │   └── lab/             # 故障注入实验 YAML 清单与 Chaos Mesh / calico-plumber 双界面截图
 ├── deploy/
 │   ├── docker/          # 多阶段 Dockerfile（Server / Agent / Probe）
