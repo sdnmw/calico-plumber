@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -10,6 +10,8 @@ import {
   EdgeLabelRenderer,
   getBezierPath,
   MarkerType,
+  useReactFlow,
+  useNodesInitialized,
   type Node,
   type Edge,
   type NodeProps,
@@ -210,6 +212,8 @@ function layoutGraph(graph: TopologyGraph): { nodes: Node[]; edges: Edge[] } {
       id: n.id,
       type: 'serviceNode',
       position: { x: (pos?.x || 0) - 122, y: (pos?.y || 0) - 56 },
+      initialWidth: 244,
+      initialHeight: 112,
       data: { raw: n },
     };
   });
@@ -226,6 +230,30 @@ function layoutGraph(graph: TopologyGraph): { nodes: Node[]; edges: Edge[] } {
   return { nodes, edges };
 }
 
+function AutoFitViewport({ fitKey, nodeCount }: { fitKey: string; nodeCount: number }) {
+  const { fitView } = useReactFlow();
+  const nodesInitialized = useNodesInitialized();
+  const lastFittedRef = useRef<string>('');
+
+  useEffect(() => {
+    if (!nodesInitialized || nodeCount === 0) return;
+    if (lastFittedRef.current === fitKey) return;
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        lastFittedRef.current = fitKey;
+        fitView({ padding: 0.18, maxZoom: 1.1, duration: 220 });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [fitKey, nodeCount, nodesInitialized, fitView]);
+
+  return null;
+}
+
 interface TopologyPageProps {
   onLaunchTrace: (req: Partial<TraceFlowRequest>) => void;
   onLaunchTCPDump: (ns: string, pod: string) => void;
@@ -240,27 +268,42 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
   const [live, setLive] = useState(true);
 
   const [graph, setGraph] = useState<TopologyGraph | null>(null);
+  const [graphFitKey, setGraphFitKey] = useState('');
   const [liveFlows, setLiveFlows] = useState<EnrichedFlow[]>([]);
   const [selectedEdge, setSelectedEdge] = useState<TopologyEdge | null>(null);
   const [drawerExpanded, setDrawerExpanded] = useState(true);
   const [loading, setLoading] = useState(true);
+  const reqSeqRef = useRef(0);
+
+  const filterKey = `${namespace}|${granularity}|${protocol}|${search}|${windowSec}`;
+
+  // Clear stale edge inspector drawer when user switches namespace / granularity / filter
+  useEffect(() => {
+    setSelectedEdge(null);
+  }, [namespace, granularity, protocol, search]);
 
   const load = useCallback(() => {
+    const seq = ++reqSeqRef.current;
     const nsArg = namespace === 'all' ? [] : [namespace];
+    const currentKey = filterKey;
     Promise.all([
       api.getTopology({ granularity, window: windowSec, namespaces: nsArg, search, protocol }),
       api.getFlows({ window: windowSec, namespace: namespace === 'all' ? '' : namespace, search, protocol, limit: 150 }),
     ])
       .then(([topo, fl]) => {
+        if (seq !== reqSeqRef.current) return;
         setGraph(topo);
+        setGraphFitKey(currentKey);
         setLiveFlows(fl.flows || []);
-        if (selectedEdge) {
-          const updated = topo.edges.find((e) => e.id === selectedEdge.id);
-          if (updated) setSelectedEdge(updated);
-        }
+        setSelectedEdge((prev) => {
+          if (!prev) return null;
+          return topo.edges.find((e) => e.id === prev.id) || null;
+        });
       })
-      .finally(() => setLoading(false));
-  }, [granularity, windowSec, namespace, search, protocol, selectedEdge?.id]);
+      .finally(() => {
+        if (seq === reqSeqRef.current) setLoading(false);
+      });
+  }, [granularity, windowSec, namespace, search, protocol, filterKey]);
 
   useEffect(() => {
     load();
@@ -414,6 +457,7 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
             </div>
           ) : (
             <ReactFlow
+              key={graphFitKey}
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}
@@ -421,10 +465,11 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
               onEdgeClick={(_, edge) => setSelectedEdge((edge.data?.raw as TopologyEdge) || null)}
               onPaneClick={() => setSelectedEdge(null)}
               fitView
-              fitViewOptions={{ padding: 0.18 }}
-              minZoom={0.25}
+              fitViewOptions={{ padding: 0.18, maxZoom: 1.1 }}
+              minZoom={0.1}
               maxZoom={2}
             >
+              <AutoFitViewport fitKey={graphFitKey} nodeCount={nodes.length} />
               <Background gap={20} size={1} color="#94a3b8" className="opacity-25" />
               <Controls position="top-left" />
               <MiniMap position="bottom-right" nodeStrokeWidth={2} pannable zoomable />
