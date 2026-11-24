@@ -5,8 +5,12 @@
 <h1 align="center">calico-plumber</h1>
 
 <p align="center">
-  <strong>容器化 Kubernetes Calico 网络诊断与流量可视化平台</strong><br />
-  面向生产集群的一站式 Calico 排障工具箱：BGP / IPIP / VXLAN 全模式感知 · 自适应 eBPF / Legacy 双引擎流量拓扑 · 多跳 TraceFlow · 零侵入 Pod 抓包与握手探测 · 全局网络体检
+  <strong>Containerized Kubernetes Calico Network Diagnostics &amp; Live Flow Observability Platform</strong><br />
+  An all-in-one Web troubleshooting toolbox for production Calico clusters: BGP / IPIP / VXLAN aware · Adaptive eBPF / Legacy dual-engine traffic topology · Multi-hop TraceFlow · Zero-intrusion Pod TCPdump &amp; handshake probes · Global network health audits
+</p>
+
+<p align="center">
+  <strong>English</strong> · <a href="README_ZH.md">简体中文</a>
 </p>
 
 <p align="center">
@@ -19,48 +23,48 @@
 </p>
 
 <p align="center">
-  <a href="#一项目功能简介">项目简介</a> ·
-  <a href="#二快速部署方式">部署方式</a> ·
-  <a href="#三六大核心功能与演示">六大核心功能（含 GIF）</a> ·
-  <a href="docs/chaos-network-lab.md">Chaos Mesh 故障注入排障实验</a> ·
-  <a href="#四故障注入排障实战与内置文档">文档与性能评估</a>
+  <a href="#1-overview--capabilities">Overview</a> ·
+  <a href="#2-quick-deployment">Deployment</a> ·
+  <a href="#3-six-core-modules--live-demos">6 Core Modules (GIF Demos)</a> ·
+  <a href="docs/chaos-network-lab.md">Chaos Mesh &amp; Fault Lab</a> ·
+  <a href="#4-fault-injection-lab-built-in-docs--performance">Docs &amp; Performance</a>
 </p>
 
 ---
 
-## 一、项目功能简介
+## 1. Overview & Capabilities
 
-**calico-plumber** 是一款专为 Kubernetes **Calico** 网络打造的容器化 Web 诊断与可观测性平台，帮助运维与平台工程师把分散在 `calicoctl`、`birdcl`、`tcpdump`、`conntrack`、`iptables/ipvsadm` 中的排障工作整合到一个可视化控制台中：
+**calico-plumber** is a containerized web-based diagnostics and flow observability platform purpose-built for Kubernetes **Calico** networks. It consolidates scattered CLI workflows (`calicoctl`, `birdcl`, `tcpdump`, `conntrack`, `iptables`, `ipvsadm`) into a single interactive console:
 
-- **全模式网络感知**：自动识别 Calico **BGP 直连**、**IPIP**（`Always` / `CrossSubnet`）、**VXLAN**（`Always` / `CrossSubnet`）及 **kube-proxy**（`iptables` / `IPVS` / `nftables` / Calico eBPF）模式，直连节点 `/var/run/calico/bird.ctl` 实时采集 BIRD BGP 邻居状态。
-- **自适应双引擎流量遥测**：
-  - **模式一 — `eBPF`**：在支持 BTF 的现代内核（Linux 5.8+ 或 RHEL / Rocky 8/9 等）上自动加载 CO-RE eBPF 探针，零侵入获取五元组流量、吞吐速率、内核 `srtt_us` 连接延迟及 TCP 重传 / RST 统计。
-  - **模式二 — `Legacy`**：在不具备 BTF/eBPF 条件的老内核节点上自动平滑降级为 **Netlink Conntrack + Pod Netns `INET_DIAG` (`tcp_info`)** 混合采集，同一集群内异构内核节点无缝混部。
-- **零侵入单 Pod 深度排障**：Node Agent 通过宿主机进入目标 Pod 的 Network Namespace，**无需业务容器预装 `tcpdump`、`curl`、`nc` 或 `sh`**（完美兼容 `distroless` / `scratch` 镜像），即可执行实时抓包（支持 `.pcap` 下载）、TCP 三次握手时序检测、HTTP/HTTPS 瀑布流探测与多跳 TraceFlow。
-- **全维度 IPAM & 资产检索**：深度解析 `IPPool`、`IPAMBlock`、`BlockAffinity` CRD，提供节点级 IP 位图热力图（活跃 Pod / 隧道 IP / 跨节点借用 / 孤儿残留 / 空闲）与 `⌘K` 全局检索。
-- **全局网络健康巡检**：内置轻量 Probe DaemonSet，一键执行 Pod-Pod N×N 跨节点延迟矩阵、Pod-Node、Pod-SVC & CoreDNS 及全集群 Service ClusterIP vs 后端 Pod 穿透体检。
-- **内置 Hugo 技术文档**：Web 控制台右上角一键直达内置静态文档站（`/docs/`），涵盖实现原理、网络/性能影响评估与常见实战排障教程。
+- **Full-Mode Calico & `kube-proxy` Awareness**: Automatically detects Calico **BGP Direct**, **IPIP** (`Always` / `CrossSubnet`), and **VXLAN** (`Always` / `CrossSubnet`) encapsulation along with `kube-proxy` dataplane modes (`iptables` / `IPVS` / `nftables` / Calico eBPF), and queries `/var/run/calico/bird.ctl` directly for live BIRD BGP peer status.
+- **Adaptive Dual-Engine Traffic Telemetry**:
+  - **Mode 1 — `eBPF`**: Automatically attaches CO-RE eBPF probes on BTF-capable kernels (Linux 5.8+, RHEL/Rocky 8/9, etc.) for zero-intrusion 5-tuple tracking, throughput, kernel `srtt_us` latency, and TCP retransmits / RST metrics.
+  - **Mode 2 — `Legacy`**: Seamlessly falls back to **Netlink Conntrack + Pod Netns `INET_DIAG` (`tcp_info`)** on older kernels without BTF/eBPF, supporting heterogeneous kernel clusters out of the box.
+- **Zero-Intrusion Per-Pod Troubleshooting**: Node Agents enter target Pod Network Namespaces directly from the host — **no `tcpdump`, `curl`, `nc`, or shell required inside application containers** (works seamlessly on `distroless` / `scratch` images) — enabling live packet capture (with `.pcap` export), TCP 3-way handshake timing, HTTP/HTTPS waterfall probing, and multi-hop TraceFlow.
+- **IPAM Heatmap & Omni-Search**: Parses Calico `IPPool`, `IPAMBlock`, and `BlockAffinity` CRDs to render per-node IP allocation bitmaps (Active Pod / Tunnel IP / Cross-Node Borrowed / Orphan / Free) plus instant `⌘K` search across IPs, Pods, Deployments, Services, Nodes, and labels.
+- **Global Network Health Audits**: Ships with a lightweight per-node Probe DaemonSet to run one-click N×N Pod-to-Pod latency matrices, Pod-Node / Pod-SVC & CoreDNS checks, and cluster-wide Service ClusterIP vs. direct backend Pod audits.
+- **Built-in Hugo Documentation**: Click **Docs (`文档`)** in the top-right corner of the Web UI (`/docs/`) for architecture deep dives, performance/network impact analysis, and practical troubleshooting runbooks.
 
-### 系统架构
+### Architecture
 
 ```mermaid
 flowchart TB
-    User["浏览器 Web 控制台 / 内置 Hugo 文档 (/docs/)"]
+    User["Web Console / Built-in Hugo Docs (/docs/)"]
 
-    subgraph CP["控制面 Deployment (calico-netdiag-server)"]
-        API["REST / WebSocket API + 嵌入式 React SPA & Hugo Docs"]
+    subgraph CP["Control Plane Deployment (calico-netdiag-server)"]
+        API["REST / WebSocket API + Embedded React SPA & Hugo Docs"]
         Store["K8s & Calico CRD Store\n(IPPool / IPAMBlock / BGP / Pod / Service)"]
-        FlowAgg["全局流量聚合与拓扑引擎"]
-        Orch["多跳 TraceFlow 编排器 & 全局健康巡检器"]
+        FlowAgg["Global Flow Aggregator & Topology Engine"]
+        Orch["Multi-Hop TraceFlow Orchestrator & Global Health Runner"]
     end
 
-    subgraph Node["各集群节点 DaemonSet"]
+    subgraph Node["Per-Node DaemonSets"]
         subgraph Agent["calico-netdiag-agent (hostNetwork / hostPID)"]
-            Engine["自适应双引擎采集\neBPF (CO-RE) / Legacy (Conntrack + INET_DIAG)"]
-            Netns["零侵入 Pod Netns 诊断器\nTraceFlow / TCPdump / TCP 握手 / HTTP 探测"]
-            DP["Calico 数据面探测器\nBIRD Socket / Route / iptables / IPVS"]
+            Engine["Adaptive Dual-Engine Telemetry\neBPF (CO-RE) / Legacy (Conntrack + INET_DIAG)"]
+            Netns["Zero-Intrusion Pod Netns Diagnostics\nTraceFlow / TCPdump / TCP Handshake / HTTP Probe"]
+            DP["Calico Dataplane Inspector\nBIRD Socket / Route / iptables / IPVS"]
         end
-        Probe["calico-netdiag-probe\n(每节点 Pod 级连通性轻量探针)"]
+        Probe["calico-netdiag-probe\n(Lightweight Pod-level Connectivity Probe)"]
     end
 
     User -->|HTTP / WebSocket| API
@@ -68,41 +72,39 @@ flowchart TB
     API --> FlowAgg
     API --> Orch
     Store -->|Read-Only RBAC| K8sAPI[("Kubernetes API Server")]
-    Engine -->|定时上报五元组/吞吐/RTT| FlowAgg
-    Orch <-->|HTTP / WS 协同抓包与探测| Netns
-    Orch <-->|Pod-Pod / SVC 探测| Probe
-    DP -->|节点 BGP/数据面状态| API
+    Engine -->|Periodic 5-tuple / Throughput / RTT| FlowAgg
+    Orch <-->|HTTP / WS Coordinated Capture & Probes| Netns
+    Orch <-->|Pod-Pod / SVC Matrix Checks| Probe
+    DP -->|Node BGP & Dataplane State| API
 ```
 
 ---
 
-## 二、快速部署方式
+## 2. Quick Deployment
 
-### 前置要求
+### Prerequisites
 
-- Kubernetes `v1.22+` 集群（使用 Calico CNI，支持 Operator 或 Manifests 安装方式）
-- 镜像架构：`linux/amd64`（公开镜像已托管于 Docker Hub `docker.io/lammw12`）
-- 内核兼容性：
-  - 支持 `/sys/kernel/btf/vmlinux` 的节点将自动运行 **`eBPF`** 模式；
-  - 无 BTF 的旧内核节点将自动运行 **`Legacy`** 模式，无需额外手工配置。
+- Kubernetes `v1.22+` cluster running **Calico CNI** (Tigera Operator or Manifest installation)
+- Architecture: `linux/amd64` (public prebuilt images hosted on Docker Hub under `docker.io/lammw12`)
+- Kernel compatibility:
+  - Nodes with `/sys/kernel/btf/vmlinux` automatically activate **`eBPF`** mode;
+  - Older kernels without BTF automatically fall back to **`Legacy`** mode with zero manual configuration.
 
-### 方式 1：单文件一键部署（推荐）
+### Option 1: Single-File One-Click Deploy (Recommended)
 
-直接使用包含命名空间、只读 RBAC、Server、Agent DaemonSet 与 Probe DaemonSet 的整合清单（拉取 Docker Hub 公开镜像）：
+Deploy the all-in-one manifest (Namespace, read-only RBAC, Server Deployment, Agent DaemonSet, and Probe DaemonSet using public Docker Hub images):
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/sdnmw/calico-plumber/main/deploy/k8s-dockerhub.yaml
 ```
 
-检查 Pod 就绪状态：
+Verify all components are `Running (1/1)`:
 
 ```bash
 kubectl -n calico-netdiag get pods -o wide
 ```
 
-期望输出所有节点上的 `calico-netdiag-agent`、`calico-netdiag-probe` 以及 `calico-netdiag-server` 均为 `Running (1/1)`。
-
-### 方式 2：克隆仓库分模块部署
+### Option 2: Clone & Apply Modular Manifests
 
 ```bash
 git clone https://github.com/sdnmw/calico-plumber.git
@@ -110,54 +112,55 @@ cd calico-plumber
 kubectl apply -f deploy/k8s/
 ```
 
-### 访问 Web 控制台与内置文档
+### Accessing the Web UI & Built-in Docs
 
-1. **NodePort 访问（默认已开启 `31880`）**：
-   - Web 控制台：`http://<任意集群节点IP>:31880`
-   - 内置技术文档：`http://<任意集群节点IP>:31880/docs/`
+1. **Via NodePort (enabled on `31880` by default)**:
+   - Web Console: `http://<any-node-ip>:31880`
+   - Built-in Documentation: `http://<any-node-ip>:31880/docs/`
 
-2. **本地 `kubectl port-forward` 访问**：
+2. **Via `kubectl port-forward`**:
    ```bash
    kubectl -n calico-netdiag port-forward svc/calico-netdiag-server 8080:8080
-   # 浏览器访问 http://localhost:8080
+   # Open http://localhost:8080 in your browser
    ```
 
-3. **通过 Ingress 绑定自定义域名**：
-   可参考模板 [deploy/k8s/05-ingress-optional.yaml.example](deploy/k8s/05-ingress-optional.yaml.example)，修改 `ingressClassName` 与 `host` 后应用即可。
-   > **提示**：实时 TCPdump 使用 WebSocket（`/api/v1/diag/tcpdump/ws`），若使用 NGINX / Envoy 等 Ingress Controller，请确保开启 WebSocket 透传并适当调大读写超时（如 `600s`）。
+3. **Via Ingress**:
+   See [deploy/k8s/05-ingress-optional.yaml.example](deploy/k8s/05-ingress-optional.yaml.example) and update `ingressClassName` and `host` for your environment.
+   > **Note**: Live TCPdump streams over WebSocket (`/api/v1/diag/tcpdump/ws`). Ensure your Ingress controller permits WebSocket upgrades and configures an appropriate read/send timeout (e.g., `600s`).
 
-### 切换流量采集引擎模式
+### Switching Telemetry Modes
 
-在 `deploy/k8s/03-agent-daemonset.yaml`（或 `deploy/k8s-dockerhub.yaml`）中修改 Agent 容器的 `TELEMETRY_MODE` 环境变量即可按需切换：
+Configure the `TELEMETRY_MODE` environment variable on `calico-netdiag-agent` (`deploy/k8s/03-agent-daemonset.yaml` or `deploy/k8s-dockerhub.yaml`):
 
-| 取值 | 行为说明 |
+| Value | Behavior |
 | :--- | :--- |
-| `auto`（默认） | 自动探测宿主机 BTF 与 eBPF 条件：满足则启用 **`eBPF`**，否则自动降级为 **`Legacy`** |
-| `ebpf` | 优先启用 **`eBPF`** 模式，加载失败时自动回退 **`Legacy`** |
-| `conntrack` | 强制所有节点使用 **`Legacy`**（Netlink Conntrack + Pod Netns `INET_DIAG`）模式 |
+| `auto` (default) | Detects host BTF/eBPF capability automatically: enables **`eBPF`** when supported, otherwise falls back to **`Legacy`** |
+| `ebpf` | Prefers **`eBPF`** mode and falls back to **`Legacy`** if loading fails |
+| `conntrack` | Forces **`Legacy`** mode (Netlink Conntrack + Pod Netns `INET_DIAG`) on all nodes |
 
 ```bash
-# 示例：临时切换全集群 Agent 为 Legacy 模式验证
+# Example: temporarily switch all nodes to Legacy mode
 kubectl -n calico-netdiag set env ds/calico-netdiag-agent TELEMETRY_MODE=conntrack
-# 恢复自适应模式
+
+# Restore adaptive auto-selection
 kubectl -n calico-netdiag set env ds/calico-netdiag-agent TELEMETRY_MODE=auto
 ```
 
-### 从源码自行构建镜像
+### Building from Source
 
-项目所有组件均采用多阶段 Dockerfile（`Dockerfile.server` 内置完成 React UI 构建、Hugo 文档生成与 Go 静态嵌入编译）：
+All three components ship with self-contained multi-stage Dockerfiles (`Dockerfile.server` compiles the React UI, builds the Hugo docs site, and embeds both into the Go server binary):
 
 ```bash
-# 运行 Go 单元测试
+# Run Go unit tests with race detection
 make test
 
-# 构建并推送 3 个组件镜像至自定义仓库（默认 REGISTRY=docker.io/lammw12）
+# Build and push all 3 images to your own registry (defaults to docker.io/lammw12)
 make build-push REGISTRY=<your-registry>/<project> TAG=v0.1.0
 ```
 
-> 若在受限网络环境构建，可通过 `--build-arg GOPROXY=https://goproxy.cn,direct` 及 `GO_IMAGE` / `NODE_IMAGE` / `ALPINE_IMAGE` 参数替换为本地镜像加速器。
+> In restricted or mirror-accelerated environments, override base images and Go proxy via `--build-arg GOPROXY=...`, `GO_IMAGE`, `NODE_IMAGE`, or `ALPINE_IMAGE`.
 
-### 卸载清理
+### Uninstall
 
 ```bash
 kubectl delete -f https://raw.githubusercontent.com/sdnmw/calico-plumber/main/deploy/k8s-dockerhub.yaml --ignore-not-found
@@ -165,128 +168,136 @@ kubectl delete -f https://raw.githubusercontent.com/sdnmw/calico-plumber/main/de
 
 ---
 
-## 三、六大核心功能与演示
+## 3. Six Core Modules & Live Demos
 
-下面通过 6 段在线集群实录 GIF，快速了解 **calico-plumber** 的六大核心模块。
+Below are 6 live-recorded interactive GIFs captured directly from a running Kubernetes + Calico cluster showcasing every core capability of **calico-plumber**.
 
-### 1. 架构总览（Cluster Fabric Overview）
+### 1. Cluster Fabric Overview
 
-进入控制台即可一屏掌控整个集群的 Calico 网络画像：
-- 自动识别 **Calico 封装模式**（BGP / IPIP / VXLAN / CrossSubnet）与 **`kube-proxy` 数据面模式**（iptables / IPVS / nftables）；
-- 展示 **实时活跃五元组数**、**平均连接延迟（RTT）** 与 **各节点遥测引擎分布**（`eBPF` vs `Legacy`）；
-- 实时列出每个节点的 **BIRD BGP Peer 会话状态**、内核版本、网卡拓扑与 IPPool 使用率，支持明暗主题切换与右上角一键打开内置技术文档。
+Get a complete cluster networking snapshot at a glance:
+- Auto-detects **Calico encapsulation mode** (BGP / IPIP / VXLAN / CrossSubnet) and **`kube-proxy` mode** (iptables / IPVS / nftables);
+- Displays **live active 5-tuples**, **average connection RTT**, and **per-node telemetry engine distribution** (`eBPF` vs. `Legacy`);
+- Lists live **BIRD BGP peer sessions**, node kernel versions, NIC topology, and IPPool utilization, with light/dark theme toggle and one-click access to built-in Hugo docs.
 
-![01-架构总览](docs/assets/01-overview.gif)
-
----
-
-### 2. 全局流量拓扑（Live Traffic Topology）
-
-将集群内实时活跃网络流渲染为可交互的有向拓扑图，快速发现异常流量、跨节点热点与高延迟链路：
-- 支持按 **Namespace / Workload / Pod / Node** 四个维度实时切换聚合粒度，并按关键词筛选 IP、端口或服务名；
-- 连线实时标注吞吐速率与延迟，点击任意流量边即可展开 **五元组明细抽屉**，查看精确的源/目的 IP:Port、协议、实时吞吐、平均 / P95 内核延迟、TCP 重传与 RST 统计；
-- 支持从任意异常连接直接一键跳转发起 **TraceFlow** 或 **TCPdump**。
-
-![02-全局流量拓扑](docs/assets/02-topology.gif)
+![01-Cluster Fabric Overview](docs/assets/01-overview.gif)
 
 ---
 
-### 3. IPAM 全景与全局检索（IPAM Heatmap & Omni-Search）
+### 2. Live Traffic Topology
 
-彻底告别手工翻查 Calico `IPAMBlock` 与 `BlockAffinity` 的繁琐过程：
-- **节点级 IPAM 位图热力图**：直观区分每个 IP 槽位的状态——**活跃 Pod**（绿）、**隧道 IP**（紫）、**跨节点借用**（黄）、**孤儿残留**（红）与 **空闲**（灰），快速排查 IP 耗尽与残留泄漏；
-- **Pod 深度检查抽屉**：点击热力图中的任意 IP 格即可侧滑查看该 Pod 所属节点、`cali*` veth 网卡、容器内路由表、生效的 NetworkPolicy 以及一键诊断入口；
-- **`⌘K` 全维度全局搜索**：在任意页面按下 `⌘K` / `Ctrl+K`，按 **Pod IP / ClusterIP / Pod / Deployment / Service / Node / 标签** 毫秒级定位排障目标。
+Visualize active cluster flows as an interactive directed graph to pinpoint anomalous connections, cross-node hotspots, and latency spikes:
+- Switch aggregation granularity in real time across **Namespace / Workload / Pod / Node**, and filter by IP, port, protocol, or workload name;
+- Edges display live throughput and latency; click any edge to open the **5-Tuple Flow Detail Drawer** showing exact `srcIP:port → dstIP:port`, protocol, throughput, average/P95 kernel RTT, TCP retransmits, and RST counts;
+- Launch **TraceFlow** or **TCPdump** directly from any suspicious connection in one click.
 
-![03-IPAM 与全局搜索](docs/assets/03-ipam-search.gif)
-
----
-
-### 4. 多跳路径追踪（Live TraceFlow）
-
-针对“同一集群内不通 / 偶发超时 / Service 转发异常”等疑难场景，提供真实报文级别的端到端多跳观测：
-- 支持 **同节点 Pod → Pod**、**跨节点 Pod → Pod**、**Pod → Service (DNAT)**、**Pod → Node** 及 **Pod → 外部 IP** 五类目标，支持 TCP / UDP / ICMP 协议；
-- 由源节点 Agent 切入源 Pod Netns 注入带唯一特征的真实探测报文，同时在源/目的双节点的 **`eth0` → `cali*` veth → 路由/NAT → `tunl0`/`vxlan.calico` → 物理网卡** 全路径同步捕获观测；
-- 按泳道可视化呈现 **正向路径与回程路径**，自动解包展示 IPIP / VXLAN 外层隧道头、每跳时间戳与精确丢包点。
-
-![04-多跳路径追踪](docs/assets/04-traceflow.gif)
+![02-Live Traffic Topology](docs/assets/02-topology.gif)
 
 ---
 
-### 5. 单 Pod 零侵入排障工作台（Pod Troubleshoot Suite）
+### 3. IPAM Heatmap & Omni-Search
 
-无需向业务容器注入 debug 边车或预装任何网络工具，选定任意 Pod 即可执行三大深度诊断：
-- **TCPdump 实时抓包**：支持选择 Pod `eth0` 或宿主机 `cali*` / `tunl0` / `vxlan.calico` / 物理网卡，支持标准 BPF 过滤语法、WebSocket 实时流式输出、点击单帧查看 **Hex / ASCII 原始载荷** 以及抓包结束后一键下载 **`.pcap` 文件** 供 Wireshark 分析；
-- **TCP 三次握手检测**：在 Pod Netns 内精确观测 `SYN → SYN-ACK → ACK`（或 `RST` / 超时）完整时序与微秒级 RTT，清晰定位建连拒绝、防火墙丢弃或中间链路抖动；
-- **HTTP / HTTPS 瀑布流探测**：输出 **DNS 解析 → TCP 建连 → TLS 握手 → TTFB 首字节 → 内容传输** 逐阶段耗时瀑布图、响应状态码与自签名证书跳过选项。
+Eliminate manual `calicoctl ipam show` and `IPAMBlock` YAML inspection:
+- **Per-Node IPAM Bitmap Heatmap**: Color-codes every IP slot across node blocks — **Active Pod** (green), **Tunnel IP** (purple), **Cross-Node Borrowed** (amber), **Orphan** (red), and **Free** (gray) — making IP exhaustion and IP leaks immediately visible;
+- **Pod Inspector Drawer**: Click any allocated IP cell to slide open host `cali*` veth details, Pod routing tables, matching NetworkPolicies, and quick diagnostic triggers;
+- **`⌘K` / `Ctrl+K` Global Omni-Search**: Search instantaneously by **Pod IP, ClusterIP, Pod, Deployment, Service, Node, or label** from any screen.
 
-![05-单 Pod 零侵入排障](docs/assets/05-pod-troubleshoot.gif)
-
----
-
-### 6. 全局网络健康检查（Global Health Audit）
-
-用于变更前基准验证、变更后回归巡检及日常网络 SLA 监控：
-- **全节点 Pod-Pod N×N 延迟矩阵**：基于每节点轻量 Probe Pod 实测同节点与跨节点连通性及延迟，点击矩阵中任意异常单元格可直接带参跳转发起 **TraceFlow**；
-- **基础设施连通性检查**：自动验证 Pod-Node、Pod-SVC（Kubernetes API / CoreDNS）以及 Calico BGP 会话、MTU 一致性与 IPAM 水位；
-- **全集群 Service 后端穿透审计**：逐一对比每个 Service 的 **ClusterIP 访问连通性** 与 **直连各后端 Pod Endpoint 的 TCP 连通性**，一眼区分是 `kube-proxy` 规则问题还是后端业务 Pod 自身故障。
-
-![06-全局网络健康检查](docs/assets/06-global-health.gif)
+![03-IPAM Heatmap and Omni-Search](docs/assets/03-ipam-search.gif)
 
 ---
 
-## 四、故障注入排障实战与内置文档
+### 4. Multi-Hop Live TraceFlow
 
-### Chaos Mesh 容器网络故障注入实战手册
+End-to-end packet-level path tracing for hard-to-debug connectivity failures, silent drops, and Service DNAT issues:
+- Supports **Same-Node Pod → Pod**, **Cross-Node Pod → Pod**, **Pod → Service (DNAT)**, **Pod → Node**, and **Pod → External IP** over TCP / UDP / ICMP;
+- Injects a uniquely fingerprinted probe packet directly inside the source Pod's netns while simultaneously capturing across **`eth0` → `cali*` veth → Route / kube-proxy NAT → `tunl0` / `vxlan.calico` → Physical NIC** on both source and destination nodes;
+- Renders swimlane timelines for both **forward and return paths**, decodes outer IPIP/VXLAN headers, and highlights the exact drop hop and matched policy chain.
 
-仓库在 [`docs/`](docs/chaos-network-lab.md) 目录提供了一套完整的 **Chaos Mesh + Kubernetes/Calico 故障注入与排障实验手册**（附可一键部署的靶场与故障 YAML 清单及 **Chaos Mesh Web UI + calico-plumber Web UI 双视角实机截图**）：
+![04-Multi-Hop TraceFlow](docs/assets/04-traceflow.gif)
 
-- 📖 完整实验指南：[**docs/chaos-network-lab.md**](docs/chaos-network-lab.md)
-- 🧪 实验覆盖 6 大经典故障：**跨节点网络高延迟与抖动**（`NetworkChaos: delay`）、**35% 高丢包与 TCP 重传风暴**（`NetworkChaos: loss`）、**跨节点双向网络分区**（`NetworkChaos: partition`）、**NetworkPolicy 误配精准端口阻断**、**Service `targetPort` 错配秒回 `RST`**，以及 **外部旧内核 `tcp_tw_recycle=1` + Calico SNAT 引发的“Pod 能通、同节点 Node 不通（PAWS 丢包）”**。
+---
 
-### 内置技术文档与性能说明
+### 5. Zero-Intrusion Pod Troubleshoot Suite
 
-点击 Web 控制台右上角 **「文档」** 按钮即可访问内置的 Hugo 技术文档站（`/docs/`），包含三篇深度文档：
+Run deep L3–L7 diagnostics on any Pod without sidecars, `kubectl debug`, or preinstalled container tools:
+- **Live TCPdump**: Capture on Pod `eth0` or host `cali*` / `tunl0` / `vxlan.calico` / primary physical NIC with standard BPF filters, live WebSocket streaming, per-frame **Hex / ASCII payload inspection**, and one-click **`.pcap` download** for Wireshark;
+- **TCP 3-Way Handshake Probe**: Captures exact `SYN → SYN-ACK → ACK` (or `RST` / `SYN_TIMEOUT`) timing ladders with microsecond RTTs to distinguish silent policy drops from closed ports (`Connection Refused`);
+- **HTTP / HTTPS Waterfall Probe**: Breaks down **DNS → TCP Connect → TLS Handshake → TTFB → Content Transfer** latency stages with status code, response headers/preview, and self-signed TLS skip support.
 
-1. **核心实现原理**（[docs-hugo/content/principles.md](docs-hugo/content/principles.md)）：详述 Calico 模式识别、BIRD Unix Socket 通信、`eBPF` CO-RE vs `Legacy` 采集管线、多节点 TraceFlow 协同与 Netns 零侵入抓包原理。
-2. **性能与网络影响评估**（[docs-hugo/content/performance.md](docs-hugo/content/performance.md)）：对 CPU、内存、带宽与业务转发延迟的量化评估。
-3. **常用使用教程与实战**（[docs-hugo/content/tutorials.md](docs-hugo/content/tutorials.md)）：常见排障场景端到端 SOP。
+![05-Zero-Intrusion Pod Troubleshoot Suite](docs/assets/05-pod-troubleshoot.gif)
 
-### 性能与安全边界摘要
+---
 
-| 维度 | `eBPF` 模式（默认现代内核） | `Legacy` 模式（旧内核自动降级） |
+### 6. Global Network Health Audit
+
+Ideal for pre-change baselines, post-upgrade verification, and continuous cluster network checks:
+- **N×N Pod-to-Pod Latency Matrix**: Measures intra-node and cross-node Pod reachability and RTT across every node; click any degraded cell to jump straight into **TraceFlow** with prefilled endpoints;
+- **Infrastructure Checks**: Continuously verifies Pod-Node, Pod-SVC (Kubernetes API / CoreDNS), Calico DaemonSet, BIRD BGP peers, NIC MTU consistency, and IPAM utilization;
+- **Cluster-Wide Service Backend Penetration Audit**: Compares **ClusterIP reachability** against **direct TCP probes to every backend Pod Endpoint**, immediately separating `kube-proxy` rule bugs from unhealthy application ports.
+
+![06-Global Network Health Audit](docs/assets/06-global-health.gif)
+
+---
+
+## 4. Fault Injection Lab, Built-in Docs & Performance
+
+### Chaos Mesh & Calico Fault Injection Troubleshooting Lab
+
+The [`docs/`](docs/chaos-network-lab.md) directory includes a hands-on, reproducible **container network fault injection & troubleshooting lab** featuring ready-to-apply manifests and **real browser screenshots of both Chaos Mesh Web UI and calico-plumber Web UI** *(currently written in Chinese with universal YAML manifests & annotated screenshots)*:
+
+- 📖 Full Lab Guide: [**docs/chaos-network-lab.md**](docs/chaos-network-lab.md)
+- 🧪 Covers **6 classic production network failure scenarios**:
+  1. **Cross-Node Latency & Jitter** (Chaos Mesh `NetworkChaos: delay 250ms ± 50ms`) → Topology RTT alert + HTTP Waterfall breakdown
+  2. **High Packet Loss & TCP Retransmission Storm** (Chaos Mesh `NetworkChaos: loss 35%`) → Topology retransmit alert + Live TCPdump capturing out-of-order SACK & retransmitted frames
+  3. **Bidirectional Network Partition** (Chaos Mesh `NetworkChaos: partition`) → TraceFlow source-side drop pinpointing + TCP `SYN_TIMEOUT`
+  4. **Misconfigured NetworkPolicy Port Drop** → Pod Inspector Drawer exposing matched policy + TraceFlow highlighting `Calico Ingress Policy` & exact `cali-tw-*` iptables chain
+  5. **Service `targetPort` Mismatch (`Connection Refused`)** → Global Health Service audit flagging `broken` + `<1ms` TCP `RST_REFUSED`
+  6. **External Legacy Kernel `net.ipv4.tcp_tw_recycle=1` + Calico SNAT ("Pod Succeeds, Same-Node Host Fails")** → Topology side-by-side green Pod vs. red Node + `0.31ms ESTABLISHED` vs. `SYN_TIMEOUT` handshake contrast + host `ens4` TCPdump + remote `TSval` rollback & `PAWSPassive` verification
+
+### Built-in Hugo Technical Documentation
+
+Click **Docs (`文档`)** in the top-right bar of the console (`/docs/`) to browse three embedded deep-dive guides:
+
+1. **Architecture & Internals** ([docs-hugo/content/principles.md](docs-hugo/content/principles.md)): Calico mode detection, BIRD Unix socket querying, `eBPF` CO-RE vs. `Legacy` telemetry pipelines, multi-node TraceFlow coordination, and host-side netns execution.
+2. **Performance & Network Impact** ([docs-hugo/content/performance.md](docs-hugo/content/performance.md)): Quantified CPU, memory, bandwidth, and data-path latency bounds.
+3. **Practical Runbooks** ([docs-hugo/content/tutorials.md](docs-hugo/content/tutorials.md)): Step-by-step production troubleshooting SOPs.
+
+### Performance & Security Footprint Summary
+
+| Aspect | `eBPF` Mode (Modern Kernels, Default) | `Legacy` Mode (Older Kernels, Auto-Fallback) |
 | :--- | :--- | :--- |
-| **业务转发路径侵入** | **零旁路拦截**（仅只读 kprobe 统计，不修改/丢弃数据包） | **零旁路拦截**（仅定时读取内核 Conntrack 表与 `INET_DIAG`） |
-| **单节点典型 CPU 开销** | 约 `10m – 40m`（硬限制 `500m`） | 约 `20m – 80m`（硬限制 `500m`） |
-| **单节点典型内存占用** | 约 `35Mi – 80Mi`（硬限制 `256Mi`） | 约 `40Mi – 95Mi`（硬限制 `256Mi`） |
-| **K8s RBAC 权限** | Server 仅需 **只读**（`get`/`list`/`watch`）权限，不修改任何 K8s / Calico 资源 | 同左 |
+| **Data-Path Impact** | **Zero inline interception** (read-only kprobe telemetry; never modifies or drops packets) | **Zero inline interception** (periodic Netlink Conntrack & `INET_DIAG` reads) |
+| **Typical Per-Node CPU** | `~10m – 40m` (hard limit `500m`) | `~20m – 80m` (hard limit `500m`) |
+| **Typical Per-Node RAM** | `~35Mi – 80Mi` (hard limit `256Mi`) | `~40Mi – 95Mi` (hard limit `256Mi`) |
+| **Kubernetes RBAC** | Server uses strictly **read-only** (`get` / `list` / `watch`) permissions; never mutates cluster resources | Same |
 
 ---
 
-## 五、项目目录结构
+## 5. Project Structure
 
 ```text
 calico-plumber/
 ├── cmd/
-│   ├── server/          # 控制面主程序（聚合 API、TraceFlow 编排、嵌入 Web UI 与 Hugo Docs）
-│   ├── agent/           # 节点 DaemonSet Agent（eBPF/Legacy 遥测、Netns 排障、BIRD/Dataplane 探测）
-│   └── probe/           # 轻量级每节点连通性探针 DaemonSet
+│   ├── server/          # Control-plane binary (API, TraceFlow orchestrator, embedded Web UI & Hugo Docs)
+│   ├── agent/           # Node DaemonSet Agent (eBPF/Legacy telemetry, Netns diagnostics, BIRD/Dataplane inspector)
+│   └── probe/           # Lightweight per-node Pod connectivity probe DaemonSet
 ├── pkg/
-│   ├── model/           # 共享数据模型（Cluster / IPAM / Flow / TraceFlow / Diag / Health）
-│   ├── k8s/             # K8s & Calico CRD Informer、IPAM 位图分类器、Omni-Search 索引
-│   ├── agent/           # Netns 切入、BIRD/Route/IPVS 探测、eBPF CO-RE & Legacy 采集引擎、排障执行器
-│   └── server/          # 流量聚合环、Agent 客户端、TraceFlow 拼接器、全局健康体检器、REST/WS API
-├── web/                 # React 19 + TypeScript + Vite + Tailwind + React Flow 前端工程
-├── docs-hugo/           # Hugo 静态技术文档源码（嵌入至 /docs/）
+│   ├── model/           # Shared domain models (Cluster / IPAM / Flow / TraceFlow / Diag / Health)
+│   ├── k8s/             # K8s & Calico CRD store, IPAM bitmap classifier, Omni-Search index
+│   ├── agent/           # Netns executor, BIRD/Route/IPVS inspector, eBPF CO-RE & Legacy engines, diagnostic runners
+│   └── server/          # Flow ring store, Agent client, TraceFlow stitcher, global health runner, REST/WS router
+├── web/                 # React 19 + TypeScript + Vite + Tailwind CSS + React Flow frontend
+├── docs-hugo/           # Hugo documentation source (embedded at /docs/)
 ├── docs/
-│   ├── assets/          # README 6 大功能演示 GIF 动图
-│   ├── chaos-network-lab.md  # Chaos Mesh + Calico 六大经典网络故障注入与排障实战手册
-│   └── lab/             # 故障注入实验 YAML 清单与 Chaos Mesh / calico-plumber 双界面截图
+│   ├── assets/          # 6 interactive feature demo GIFs for README
+│   ├── chaos-network-lab.md  # 6-scenario Chaos Mesh & Calico fault-injection troubleshooting lab
+│   └── lab/             # Reproducible lab manifests & Chaos Mesh / calico-plumber UI screenshots
 ├── deploy/
-│   ├── docker/          # 多阶段 Dockerfile（Server / Agent / Probe）
-│   ├── k8s/             # 分模块 Kubernetes 部署清单与 Ingress 模板
-│   └── k8s-dockerhub.yaml  # 单文件一键部署清单
+│   ├── docker/          # Multi-stage Dockerfiles (Server / Agent / Probe)
+│   ├── k8s/             # Modular Kubernetes manifests & Ingress template
+│   └── k8s-dockerhub.yaml  # Single-file one-click deployment manifest
 ├── Makefile
+├── README.md            # English README (default)
+├── README_ZH.md         # Simplified Chinese README
 └── LICENSE              # Apache License 2.0
 ```
 
@@ -294,4 +305,4 @@ calico-plumber/
 
 ## License
 
-本项目采用 [Apache License 2.0](LICENSE) 协议开源。
+Licensed under the [Apache License 2.0](LICENSE).
