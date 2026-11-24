@@ -20,6 +20,7 @@ type HostDataplaneInfo struct {
 	ConntrackAcct    bool
 	KubeProxyMode    model.KubeProxyMode
 	PrimaryNIC       string
+	PrimaryIP        string
 	NICMTU           int
 	TunnelInterfaces []model.TunnelIfaceInfo
 	BGPProtocols     []model.BIRDProtocol
@@ -43,6 +44,12 @@ func InspectHost(nodeName string) HostDataplaneInfo {
 
 	info.PrimaryNIC, info.NICMTU = detectPrimaryNIC()
 	info.TunnelInterfaces, info.KubeProxyMode = detectLinksAndKubeProxy(info.PrimaryNIC)
+	for _, tif := range info.TunnelInterfaces {
+		if tif.Type == "physical" && tif.IP != "" {
+			info.PrimaryIP = tif.IP
+			break
+		}
+	}
 	info.BGPProtocols = QueryBIRDProtocols("", nodeName)
 
 	return info

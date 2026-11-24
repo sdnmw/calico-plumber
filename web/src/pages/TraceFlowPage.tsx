@@ -118,10 +118,11 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
 
   // Group forward hops by dataplane swimlane
   const laneOrder = ['source-node', 'fabric', 'dest-node', 'external'];
+  const destLaneNode = (result?.forwardHops || []).find((h) => h.lane === 'dest-node' && h.nodeName)?.nodeName;
   const laneLabels: Record<string, string> = {
     'source-node': `源节点数据面 (${result?.source.nodeName || 'Source Node'})`,
     fabric: `底层 / 隧道网络织物 (${result?.encapMode || 'Fabric'})`,
-    'dest-node': `目标节点数据面 (${result?.resolvedBackend?.nodeName || result?.destination.nodeName || 'Dest Node'})`,
+    'dest-node': `目标节点数据面 (${result?.resolvedBackend?.nodeName || result?.destination.nodeName || destLaneNode || 'Dest Node'})`,
     external: '外部网络 / 网关出口',
   };
 
@@ -641,12 +642,15 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
 
 function HopCard({ hop, selected, onClick }: { hop: TraceHop; selected: boolean; onClick: () => void }) {
   const isBad = hop.status === 'DROPPED' || hop.status === 'TIMEOUT';
+  const isSkipped = hop.status === 'SKIPPED';
   const isWarn = hop.status === 'RESET' || hop.status === 'NAT' || hop.status === 'ENCAPSULATED' || hop.status === 'DECAPSULATED';
   const borderCls = isBad
     ? 'border-rose-400 bg-rose-50/70 dark:bg-rose-950/30'
-    : isWarn
-      ? 'border-amber-300 dark:border-amber-800 bg-white dark:bg-slate-900'
-      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900';
+    : isSkipped
+      ? 'border-slate-200 dark:border-slate-800 border-dashed bg-slate-50/60 dark:bg-slate-900/50 opacity-75'
+      : isWarn
+        ? 'border-amber-300 dark:border-amber-800 bg-white dark:bg-slate-900'
+        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900';
 
   const Icon =
     hop.component.includes('policy')
@@ -684,7 +688,7 @@ function HopCard({ hop, selected, onClick }: { hop: TraceHop; selected: boolean;
         </div>
       )}
       <div className="mt-1.5 flex items-center justify-between text-[10px] font-mono text-slate-400">
-        <span>{hop.observed ? 'Wire Observed' : 'Evaluated'}</span>
+        <span>{hop.observed ? 'Wire Observed' : isSkipped ? 'Not Reached' : 'Evaluated'}</span>
         <span>{hop.deltaMs ? `+${hop.deltaMs}ms` : ''}</span>
       </div>
     </button>

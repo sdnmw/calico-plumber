@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, Layers, ShieldAlert, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { Cpu, Layers, ShieldAlert, CheckCircle2, AlertTriangle, XCircle, MinusCircle } from 'lucide-react';
 
 export function EncapBadge({ mode }: { mode: string }) {
   const m = mode || 'Unknown';
@@ -47,6 +47,9 @@ export function StatusPill({ status, label }: { status: string; label?: string }
   } else if (['fail', 'critical', 'broken', 'dropped', 'timeout', 'error', 'orphan', 'notready'].some((k) => s.includes(k))) {
     cls = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800';
     Icon = XCircle;
+  } else if (s.includes('skip')) {
+    cls = 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:border-slate-700';
+    Icon = MinusCircle;
   }
 
   return (

@@ -1,6 +1,7 @@
 package diag
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -61,8 +62,8 @@ func ExecuteTraceCapture(ctx context.Context, nodeName string, req model.AgentTr
 	}
 
 	// Host route, kube-proxy NAT, and Calico policy inspection on source or dest node
+	routeTarget := req.DstIP
 	if req.Role == "source" || req.Role == "both" {
-		routeTarget := req.DstIP
 		if len(req.BackendIPs) > 0 {
 			// Also inspect kube-proxy NAT rule for the Service ClusterIP
 			if rule := dataplane.LookupKubeProxyService(hostInfo.KubeProxyMode, req.DstIP, req.DstPort, req.Protocol); rule != nil {
@@ -125,11 +126,19 @@ func ExecuteTraceCapture(ctx context.Context, nodeName string, req model.AgentTr
 			if tunnelIface != "" {
 				addSpec("", tunnelIface, "src_tunnel")
 			}
-			if resp.EgressInterface != "" && resp.EgressInterface != resp.HostVeth && resp.EgressInterface != tunnelIface && resp.EgressInterface != "lo" {
+			if resp.EgressInterface != "" &&
+				resp.EgressInterface != resp.HostVeth &&
+				resp.EgressInterface != tunnelIface &&
+				resp.EgressInterface != "lo" &&
+				!strings.HasPrefix(resp.EgressInterface, "cali") &&
+				!strings.HasPrefix(resp.EgressInterface, "veth") {
 				addSpec("", resp.EgressInterface, "src_phy_nic")
 			} else if hostInfo.PrimaryNIC != "" {
 				addSpec("", hostInfo.PrimaryNIC, "src_phy_nic")
 			}
+		} else if resp.EgressInterface == "lo" {
+			// Same-node hostNetwork backend (e.g. default/kubernetes kube-apiserver via DNAT -> lo)
+			addSpec("", "lo", "dst_host_lo")
 		}
 	}
 	if req.Role == "dest" || req.Role == "both" {
@@ -146,6 +155,28 @@ func ExecuteTraceCapture(ctx context.Context, nodeName string, req model.AgentTr
 		}
 		if dstPodInfo != nil && !dstPodInfo.HostNet {
 			addSpec(dstPodInfo.NetnsPath, "eth0", "dst_pod_eth0")
+		}
+	}
+
+	// For multi-replica Services, also arm up to 4 local backend Pods' cali* veths (or lo for local hostNetwork backends)
+	// so whichever replica kube-proxy DNAT selects on this node is wire-observed!
+	if len(req.BackendIPs) > 0 {
+		armedExtra := 0
+		for _, bip := range req.BackendIPs {
+			if bip == "" || bip == req.PodIP {
+				continue
+			}
+			if hostInfo.PrimaryIP != "" && bip == hostInfo.PrimaryIP {
+				addSpec("", "lo", "dst_host_lo")
+				continue
+			}
+			if armedExtra >= 4 {
+				continue
+			}
+			if veth := netns.FindHostVethByIP(bip); veth != "" && veth != resp.HostVeth {
+				addSpec("", veth, "dst_cali_veth")
+				armedExtra++
+			}
 		}
 	}
 
@@ -173,7 +204,7 @@ func ExecuteTraceCapture(ctx context.Context, nodeName string, req model.AgentTr
 		readyWg.Add(1)
 		go func(spec sniffSpec) {
 			defer wg.Done()
-			pkts := sniffTraceInterface(capCtx, &readyWg, spec.nsPath, spec.iface, spec.stage, req, targetIPs)
+			pkts := sniffTraceInterface(capCtx, &readyWg, spec.nsPath, spec.iface, spec.stage, req, targetIPs, hostInfo.PrimaryIP)
 			if len(pkts) > 0 {
 				mu.Lock()
 				captured = append(captured, pkts...)
@@ -218,6 +249,17 @@ func ExecuteTraceCapture(ctx context.Context, nodeName string, req model.AgentTr
 		}
 	}
 
+	// If kube-proxy actually DNAT'd to a different backend IP than BackendIPs[0], refresh host route metadata
+	// so EgressInterface, RouteSummary, and EncapDetected reflect the exact selected backend path.
+	if (req.Role == "source" || req.Role == "both") && resp.TranslatedDstIP != "" && resp.TranslatedDstIP != routeTarget {
+		rd := dataplane.LookupHostRoute(resp.TranslatedDstIP)
+		resp.EgressInterface = rd.Interface
+		resp.RouteSummary = rd.Summary
+		resp.RouteProtocol = rd.Protocol
+		resp.NextHop = rd.Gateway
+		resp.EncapDetected = rd.EncapDetected
+	}
+
 	resp.CapturedPackets = captured
 	return resp, nil
 }
@@ -228,6 +270,7 @@ func sniffTraceInterface(
 	nsPath, ifaceName, stage string,
 	req model.AgentTraceCaptureRequest,
 	targetIPs map[string]bool,
+	hostPrimaryIP string,
 ) []model.CapturedTracePacket {
 	var results []model.CapturedTracePacket
 
@@ -296,7 +339,7 @@ func sniffTraceInterface(
 			continue
 		}
 		nowNs := time.Now().UnixNano()
-		pkt, matched := matchTracePacket(buf[:n], rawIPMode, ifaceName, stage, nowNs, req, targetIPs)
+		pkt, matched := matchTracePacket(buf[:n], rawIPMode, ifaceName, stage, nowNs, req, targetIPs, hostPrimaryIP)
 		if !matched {
 			continue
 		}
@@ -320,6 +363,7 @@ func matchTracePacket(
 	tsNs int64,
 	req model.AgentTraceCaptureRequest,
 	targetIPs map[string]bool,
+	hostPrimaryIP string,
 ) (model.CapturedTracePacket, bool) {
 	outerHeader := ""
 	ipBytes := raw
@@ -393,9 +437,15 @@ func matchTracePacket(
 		dp := uint16(tcp.DstPort)
 		flags := formatTCPFlags(tcp)
 
-		// Match forward direction (also allow SNAT srcIP on phy NIC when target is external)
-		portMatchesFwd := int(sp) == req.SrcPort && (int(dp) == req.DstPort || (req.BackendPort > 0 && int(dp) == req.BackendPort))
-		if portMatchesFwd && (srcIP == req.SrcIP || targetIPs[dstIP]) {
+		// Match forward direction (also allow SNAT srcIP & randomized srcPort from Calico MASQUERADE --random-fully on phy NIC)
+		dstPortMatches := int(dp) == req.DstPort || (req.BackendPort > 0 && int(dp) == req.BackendPort)
+		portMatchesFwd := int(sp) == req.SrcPort && dstPortMatches
+		snatMatchesFwd := stage == "src_phy_nic" && hostPrimaryIP != "" && srcIP == hostPrimaryIP && targetIPs[dstIP] && dstPortMatches && tcp.SYN && !tcp.ACK
+		if (portMatchesFwd && (srcIP == req.SrcIP || targetIPs[dstIP])) || snatMatchesFwd {
+			oh := outerHeader
+			if snatMatchesFwd && oh == "" {
+				oh = fmt.Sprintf("SNAT %s:%d → %s:%d", req.SrcIP, req.SrcPort, srcIP, sp)
+			}
 			return model.CapturedTracePacket{
 				Interface:   ifaceName,
 				Stage:       stage,
@@ -407,7 +457,7 @@ func matchTracePacket(
 				DstPort:     dp,
 				Protocol:    "TCP",
 				TCPFlags:    flags,
-				OuterHeader: outerHeader,
+				OuterHeader: oh,
 				Length:      len(raw),
 				Summary:     fmt.Sprintf("TCP %s:%d → %s:%d [%s] len=%d", srcIP, sp, dstIP, dp, flags, len(raw)),
 			}, true
@@ -440,7 +490,15 @@ func matchTracePacket(
 		udp := udpLayer.(*layers.UDP)
 		sp := uint16(udp.SrcPort)
 		dp := uint16(udp.DstPort)
-		if int(sp) == req.SrcPort && (int(dp) == req.DstPort || (req.BackendPort > 0 && int(dp) == req.BackendPort)) && (srcIP == req.SrcIP || targetIPs[dstIP]) {
+		dstPortMatches := int(dp) == req.DstPort || (req.BackendPort > 0 && int(dp) == req.BackendPort)
+		payloadSig := bytes.Contains(udp.Payload, []byte("CALICO-NETDIAG-TRACEFLOW"))
+		portMatchesFwd := int(sp) == req.SrcPort && dstPortMatches
+		snatMatchesFwd := (stage == "src_phy_nic" || stage == "dst_phy_nic") && targetIPs[dstIP] && dstPortMatches && payloadSig && (hostPrimaryIP == "" || srcIP == hostPrimaryIP || stage == "dst_phy_nic")
+		if (portMatchesFwd && (srcIP == req.SrcIP || targetIPs[dstIP])) || snatMatchesFwd {
+			oh := outerHeader
+			if snatMatchesFwd && srcIP != req.SrcIP && oh == "" {
+				oh = fmt.Sprintf("SNAT %s:%d → %s:%d", req.SrcIP, req.SrcPort, srcIP, sp)
+			}
 			return model.CapturedTracePacket{
 				Interface:   ifaceName,
 				Stage:       stage,
@@ -451,7 +509,7 @@ func matchTracePacket(
 				SrcPort:     sp,
 				DstPort:     dp,
 				Protocol:    "UDP",
-				OuterHeader: outerHeader,
+				OuterHeader: oh,
 				Length:      len(raw),
 				Summary:     fmt.Sprintf("UDP %s:%d → %s:%d len=%d", srcIP, sp, dstIP, dp, len(raw)),
 			}, true
@@ -479,10 +537,16 @@ func matchTracePacket(
 			return model.CapturedTracePacket{}, false
 		}
 		icmp := icmpLayer.(*layers.ICMPv4)
-		if icmp.Id != req.ICMPID {
+		idMatches := icmp.Id == req.ICMPID
+		payloadSig := bytes.Contains(icmp.LayerPayload(), []byte("CALICO-NETDIAG-TF"))
+		if !idMatches && !payloadSig {
 			return model.CapturedTracePacket{}, false
 		}
 		if icmp.TypeCode.Type() == layers.ICMPv4TypeEchoRequest && (srcIP == req.SrcIP || targetIPs[dstIP]) {
+			oh := outerHeader
+			if !idMatches && srcIP != req.SrcIP && oh == "" {
+				oh = fmt.Sprintf("SNAT %s → %s (icmp_id=%d)", req.SrcIP, srcIP, icmp.Id)
+			}
 			return model.CapturedTracePacket{
 				Interface:   ifaceName,
 				Stage:       stage,
@@ -492,7 +556,7 @@ func matchTracePacket(
 				DstIP:       dstIP,
 				Protocol:    "ICMP",
 				ICMPType:    "EchoRequest",
-				OuterHeader: outerHeader,
+				OuterHeader: oh,
 				Length:      len(raw),
 				Summary:     fmt.Sprintf("ICMP Echo Request %s → %s id=%d seq=%d", srcIP, dstIP, icmp.Id, icmp.Seq),
 			}, true
