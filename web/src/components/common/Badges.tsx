@@ -33,7 +33,7 @@ export function EngineBadge({ engine, reason }: { engine: string; reason?: strin
   );
 }
 
-export function StatusPill({ status, label }: { status: string; label?: string }) {
+export function StatusPill({ status, label, compact = false }: { status: string; label?: string; compact?: boolean }) {
   const s = (status || '').toLowerCase();
   let cls = 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
   let Icon = CheckCircle2;
@@ -53,8 +53,12 @@ export function StatusPill({ status, label }: { status: string; label?: string }
   }
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
-      <Icon className="w-3 h-3 shrink-0" />
+    <span
+      className={`inline-flex items-center gap-1 rounded-full font-medium border whitespace-nowrap ${
+        compact ? 'px-1.5 py-0 text-[10px] leading-4' : 'px-2 py-0.5 text-xs'
+      } ${cls}`}
+    >
+      <Icon className={`${compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} shrink-0`} />
       <span>{label || status}</span>
     </span>
   );

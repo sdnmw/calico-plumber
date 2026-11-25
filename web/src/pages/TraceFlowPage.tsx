@@ -31,6 +31,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
   const [nodes, setNodes] = useState<{ name: string; ip: string }[]>([]);
   const [history, setHistory] = useState<TraceFlowResult[]>([]);
   const [viewMode, setViewMode] = useState<'layered' | 'linear'>('layered');
+  const [animateFlow, setAnimateFlow] = useState(true);
 
   const [srcNs, setSrcNs] = useState('');
   const [srcPod, setSrcPod] = useState('');
@@ -55,17 +56,15 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
         setNodeDetails(ov.nodes || []);
         setNodes((ov.nodes || []).map((n) => ({ name: n.name, ip: n.internalIP })));
         setHistory(hist);
-        if (hist.length > 0 && !result) {
-          setResult(hist[0]);
-        }
-        // Smart initial defaults if none passed
+        // Smart initial defaults if none passed (keep result empty on initial entry so the 3 quick scenarios show!)
         if (!initialReq?.srcPod && runningPods.length > 0 && !srcPod) {
           const defSrc = runningPods.find((p) => p.namespace === 'calico-netdiag' && p.name.includes('probe')) || runningPods[0];
           setSrcNs(defSrc.namespace);
           setSrcPod(defSrc.name);
         }
         if (!initialReq?.dstName && !initialReq?.dstIP && runningPods.length > 1 && !dstName) {
-          const defDst = runningPods.find((p) => p.nodeName !== runningPods[0].nodeName) || runningPods[1];
+          const defSrc = runningPods.find((p) => p.namespace === 'calico-netdiag' && p.name.includes('probe')) || runningPods[0];
+          const defDst = runningPods.find((p) => p.nodeName !== defSrc.nodeName && p.name !== defSrc.name) || runningPods[1];
           setDstNs(defDst.namespace);
           setDstName(defDst.name);
         }
@@ -90,8 +89,8 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
   const dstPodsInNs = pods.filter((p) => !dstNs || p.namespace === dstNs);
   const dstSvcsInNs = services.filter((s) => !dstNs || s.namespace === dstNs);
 
-  const runTrace = async () => {
-    if (!srcNs || !srcPod) {
+  const executeTrace = async (req: TraceFlowRequest) => {
+    if (!req.srcNamespace || !req.srcPod) {
       setError('请选择源 Pod');
       return;
     }
@@ -99,17 +98,6 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
     setError('');
     setSelectedHop(null);
     try {
-      const req: TraceFlowRequest = {
-        srcNamespace: srcNs,
-        srcPod,
-        targetType,
-        dstNamespace: targetType === 'pod' || targetType === 'service' ? dstNs : undefined,
-        dstName: targetType !== 'ip' ? dstName : undefined,
-        dstIP: targetType === 'ip' ? dstIP : undefined,
-        protocol,
-        dstPort: protocol === 'ICMP' ? 0 : dstPort,
-        timeoutMs: 2500,
-      };
       const res = await api.runTraceFlow(req);
       setResult(res);
       setHistory((prev) => [res, ...prev.filter((h) => h.id !== res.id)].slice(0, 20));
@@ -118,6 +106,123 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
     } finally {
       setRunning(false);
     }
+  };
+
+  const runTrace = () =>
+    executeTrace({
+      srcNamespace: srcNs,
+      srcPod,
+      targetType,
+      dstNamespace: targetType === 'pod' || targetType === 'service' ? dstNs : undefined,
+      dstName: targetType !== 'ip' ? dstName : undefined,
+      dstIP: targetType === 'ip' ? dstIP : undefined,
+      protocol,
+      dstPort: protocol === 'ICMP' ? 0 : dstPort,
+      timeoutMs: 2500,
+    });
+
+  const pickDefaultSourcePod = () => {
+    const cur = pods.find((p) => p.namespace === srcNs && p.name === srcPod);
+    if (cur) return cur;
+    return pods.find((p) => p.namespace === 'calico-netdiag' && p.name.includes('probe')) || pods[0];
+  };
+
+  const runPresetPodToPod = () => {
+    const probeList = pods.filter((p) => p.namespace === 'calico-netdiag' && p.name.includes('probe'));
+    let sPod: PodBrief | undefined;
+    let dPod: PodBrief | undefined;
+    let port = 8099;
+    if (probeList.length >= 2) {
+      sPod = probeList[0];
+      dPod = probeList.find((p) => p.nodeName !== sPod!.nodeName) || probeList[1];
+      port = 8099;
+    } else if (pods.length >= 2) {
+      sPod = pods[0];
+      dPod = pods.find((p) => p.nodeName !== sPod!.nodeName) || pods[1];
+      port = 80;
+    }
+    if (!sPod || !dPod) {
+      setError('集群内运行中的非 hostNetwork Pod 不足 2 个，无法发起 Pod → Pod 追踪');
+      return;
+    }
+    setSrcNs(sPod.namespace);
+    setSrcPod(sPod.name);
+    setTargetType('pod');
+    setDstNs(dPod.namespace);
+    setDstName(dPod.name);
+    setProtocol('TCP');
+    setDstPort(port);
+    executeTrace({
+      srcNamespace: sPod.namespace,
+      srcPod: sPod.name,
+      targetType: 'pod',
+      dstNamespace: dPod.namespace,
+      dstName: dPod.name,
+      protocol: 'TCP',
+      dstPort: port,
+      timeoutMs: 2500,
+    });
+  };
+
+  const runPresetPodToService = () => {
+    const sPod = pickDefaultSourcePod();
+    if (!sPod) {
+      setError('未找到可用的源 Pod');
+      return;
+    }
+    const svc =
+      services.find((s) => s.name === 'kube-dns' && s.clusterIP && s.clusterIP !== 'None') ||
+      services.find((s) => s.clusterIP && s.clusterIP !== 'None' && s.ports?.length > 0 && s.namespace !== 'default') ||
+      services.find((s) => s.clusterIP && s.clusterIP !== 'None' && s.ports?.length > 0);
+    if (!svc) {
+      setError('未找到可用的 ClusterIP Service');
+      return;
+    }
+    const port = svc.ports?.[0] || 80;
+    setSrcNs(sPod.namespace);
+    setSrcPod(sPod.name);
+    setTargetType('service');
+    setDstNs(svc.namespace);
+    setDstName(svc.name);
+    setProtocol('TCP');
+    setDstPort(port);
+    executeTrace({
+      srcNamespace: sPod.namespace,
+      srcPod: sPod.name,
+      targetType: 'service',
+      dstNamespace: svc.namespace,
+      dstName: svc.name,
+      protocol: 'TCP',
+      dstPort: port,
+      timeoutMs: 2500,
+    });
+  };
+
+  const runPresetPodToNode = () => {
+    const sPod = pickDefaultSourcePod();
+    if (!sPod) {
+      setError('未找到可用的源 Pod');
+      return;
+    }
+    if (nodes.length === 0) {
+      setError('未找到可用的目标节点');
+      return;
+    }
+    const targetNode = nodes.find((n) => n.name !== sPod.nodeName) || nodes[0];
+    setSrcNs(sPod.namespace);
+    setSrcPod(sPod.name);
+    setTargetType('node');
+    setDstName(targetNode.name);
+    setProtocol('ICMP');
+    executeTrace({
+      srcNamespace: sPod.namespace,
+      srcPod: sPod.name,
+      targetType: 'node',
+      dstName: targetNode.name,
+      protocol: 'ICMP',
+      dstPort: 0,
+      timeoutMs: 2500,
+    });
   };
 
   // Group forward hops by dataplane swimlane
@@ -139,20 +244,31 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
     .filter((l) => l.hops.length > 0);
 
   return (
-    <div className="p-6 space-y-5 max-w-[1600px] mx-auto">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="p-3.5 sm:p-4 space-y-2.5 max-w-[1600px] mx-auto">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
             多跳 TraceFlow 路径追踪
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             真实进入源 Pod Netns 注入唯一特征报文，并在源/目的双节点各关键接口（eth0 / cali* veth / kube-proxy NAT / tunl0 / vxlan.calico / 物理网卡）实时抓包观测，精准定位丢包跳点
           </p>
         </div>
+        {result && (
+          <button
+            onClick={() => {
+              setResult(null);
+              setSelectedHop(null);
+            }}
+            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-600 dark:text-slate-300 hover:border-blue-400 transition"
+          >
+            快速场景首页
+          </button>
+        )}
       </div>
 
       {/* TraceFlow Config Builder Bar */}
-      <SectionCard className="p-4">
+      <SectionCard className="p-3.5">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
           {/* Source Pod */}
           <div className="lg:col-span-4 space-y-1">
@@ -347,72 +463,131 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
           </div>
         </div>
         {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
-      </SectionCard>
-
-      {/* Empty State Quick Presets when no trace yet */}
-      {!result && (
-        <SectionCard
-          title="快速发起典型 Calico 排障场景"
-          subtitle="选择一个预设场景或直接在上方自定义源 Pod 与目标端点执行实时多跳 TraceFlow"
-        >
-          <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        {/* Always-available compact 1-click quick preset bar when viewing a result */}
+        {result && (
+          <div className="mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="text-slate-400 font-medium">一键快速场景：</span>
             <button
-              onClick={() => {
-                const probeList = pods.filter((p) => p.namespace === 'calico-netdiag' && p.name.includes('probe'));
-                if (probeList.length >= 2) {
-                  setSrcNs(probeList[0].namespace);
-                  setSrcPod(probeList[0].name);
-                  setTargetType('pod');
-                  setDstNs(probeList[1].namespace);
-                  setDstName(probeList[1].name);
-                  setProtocol('TCP');
-                  setDstPort(8099);
-                }
-              }}
-              className="text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 bg-slate-50/70 dark:bg-slate-950/50 transition"
+              onClick={runPresetPodToPod}
+              disabled={running}
+              className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-blue-50 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-blue-950/50 text-slate-700 dark:text-slate-300 transition disabled:opacity-50"
             >
-              <div className="font-semibold text-slate-800 dark:text-slate-100">跨节点 Pod → Pod (BGP / 隧道)</div>
-              <p className="text-[11px] text-slate-500 mt-1">完整观测源 Pod eth0 → cali* veth → 物理/隧道口 → 跨节点 Fabric → 目标 Pod 逐跳延迟与封装头</p>
+              跨节点 Pod → Pod
             </button>
             <button
-              onClick={() => {
-                const svc = services.find((s) => s.clusterIP && s.clusterIP !== 'None' && s.ports?.length > 0 && s.namespace !== 'kube-system') || services.find((s) => s.name === 'kube-dns');
-                if (svc) {
-                  setTargetType('service');
-                  setDstNs(svc.namespace);
-                  setDstName(svc.name);
-                  setProtocol('TCP');
-                  setDstPort(svc.ports[0] || 80);
-                }
-              }}
-              className="text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 bg-slate-50/70 dark:bg-slate-950/50 transition"
+              onClick={runPresetPodToService}
+              disabled={running}
+              className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-blue-50 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-blue-950/50 text-slate-700 dark:text-slate-300 transition disabled:opacity-50"
             >
-              <div className="font-semibold text-slate-800 dark:text-slate-100">Pod → Service ClusterIP (kube-proxy DNAT)</div>
-              <p className="text-[11px] text-slate-500 mt-1">透视 iptables KUBE-SVC/SEP 或 IPVS 规则，展示 DNAT 选中的真实后端 Pod</p>
+              Pod → Service DNAT
             </button>
             <button
-              onClick={() => {
-                if (nodes.length > 0) {
-                  setTargetType('node');
-                  setDstName(nodes[0].name);
-                  setProtocol('ICMP');
-                }
-              }}
-              className="text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 bg-slate-50/70 dark:bg-slate-950/50 transition"
+              onClick={runPresetPodToNode}
+              disabled={running}
+              className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-blue-50 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-blue-950/50 text-slate-700 dark:text-slate-300 transition disabled:opacity-50"
             >
-              <div className="font-semibold text-slate-800 dark:text-slate-100">Pod → 节点 InternalIP (ICMP)</div>
-              <p className="text-[11px] text-slate-500 mt-1">验证 Pod 到宿主机 / 跨节点主机的底层路由与往返 Echo 连通性</p>
+              Pod → 节点 InternalIP (ICMP)
             </button>
           </div>
-        </SectionCard>
+        )}
+      </SectionCard>
+
+      {/* Default Landing: 3 One-Click Quick Scenarios + Recent History */}
+      {!result && (
+        <div className="space-y-4">
+          <SectionCard
+            title="快速发起典型 Calico 排障场景"
+            subtitle="点击任一场景卡片即自动填充参数并立即执行实时多跳 TraceFlow"
+          >
+            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <button
+                onClick={runPresetPodToPod}
+                disabled={running}
+                className="text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 hover:shadow-sm bg-slate-50/70 dark:bg-slate-950/50 transition disabled:opacity-50 group"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                    跨节点 Pod → Pod (BGP / 隧道)
+                  </span>
+                  <Play className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  完整观测源 Pod eth0 → cali* veth → 物理/隧道口 → 跨节点 Fabric → 目标 Pod 逐跳延迟与封装头
+                </p>
+              </button>
+              <button
+                onClick={runPresetPodToService}
+                disabled={running}
+                className="text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 hover:shadow-sm bg-slate-50/70 dark:bg-slate-950/50 transition disabled:opacity-50 group"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                    Pod → Service ClusterIP (kube-proxy DNAT)
+                  </span>
+                  <Play className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  透视 iptables KUBE-SVC/SEP 或 IPVS 规则，展示 DNAT 选中的真实后端 Pod
+                </p>
+              </button>
+              <button
+                onClick={runPresetPodToNode}
+                disabled={running}
+                className="text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 hover:shadow-sm bg-slate-50/70 dark:bg-slate-950/50 transition disabled:opacity-50 group"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                    Pod → 节点 InternalIP (ICMP)
+                  </span>
+                  <Play className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  验证 Pod 到宿主机 / 跨节点主机的底层路由、Calico SNAT 与往返 Echo 连通性
+                </p>
+              </button>
+            </div>
+          </SectionCard>
+
+          {history.length > 0 && (
+            <SectionCard
+              title="最近 TraceFlow 记录"
+              subtitle="点击任意历史记录可直接回看完整分层拓扑与抓包明细"
+              action={<History className="w-4 h-4 text-slate-400" />}
+            >
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[260px] overflow-y-auto">
+                {history.slice(0, 8).map((h) => (
+                  <button
+                    key={h.id}
+                    onClick={() => {
+                      setResult(h);
+                      setSelectedHop(null);
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition flex flex-wrap items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <StatusPill status={h.status} compact />
+                      <span className="text-xs font-mono text-slate-700 dark:text-slate-200 truncate">
+                        {h.source.displayName} → {h.destination.displayName}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 font-mono text-[10px] text-slate-400 shrink-0">
+                      <span>{h.protocol}{h.dstPort ? `:${h.dstPort}` : ''} · {h.encapMode}</span>
+                      <span>{h.totalLatencyMs} ms</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </SectionCard>
+          )}
+        </div>
       )}
 
       {/* Trace Result Visualization */}
       {result && (
         <>
-          {/* Verdict Banner */}
+          {/* Compact Verdict Banner */}
           <div
-            className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-4 ${
+            className={`px-4 py-2.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${
               result.status === 'REACHABLE'
                 ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900'
                 : result.status === 'RESET'
@@ -470,37 +645,52 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
             title="数据面分层拓扑路径视图（Node / OS / Kernel / vNIC / Container）"
             subtitle="按真实宿主机分层结构（容器 → OS 用户态/内核态 → 虚拟网卡/隧道 → 物理网卡 → Node 底层）还原报文流向，点击任意跳点查看实时抓包与规则明细"
             action={
-              <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px] shrink-0">
-                <button
-                  onClick={() => setViewMode('layered')}
-                  className={`px-2.5 py-1 rounded-md font-medium transition ${
-                    viewMode === 'layered'
-                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                  }`}
-                >
-                  分层拓扑视图
-                </button>
-                <button
-                  onClick={() => setViewMode('linear')}
-                  className={`px-2.5 py-1 rounded-md font-medium transition ${
-                    viewMode === 'linear'
-                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                  }`}
-                >
-                  线性流水线
-                </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {viewMode === 'layered' && (
+                  <button
+                    onClick={() => setAnimateFlow((v) => !v)}
+                    className={`px-2 py-1 rounded-lg border text-[11px] font-medium transition ${
+                      animateFlow
+                        ? 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-300'
+                        : 'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    {animateFlow ? '● 报文流向动效' : '○ 动效已暂停'}
+                  </button>
+                )}
+                <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px]">
+                  <button
+                    onClick={() => setViewMode('layered')}
+                    className={`px-2.5 py-1 rounded-md font-medium transition ${
+                      viewMode === 'layered'
+                        ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    }`}
+                  >
+                    分层拓扑视图
+                  </button>
+                  <button
+                    onClick={() => setViewMode('linear')}
+                    className={`px-2.5 py-1 rounded-md font-medium transition ${
+                      viewMode === 'linear'
+                        ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    }`}
+                  >
+                    线性流水线
+                  </button>
+                </div>
               </div>
             }
           >
-            <div className="p-4 sm:p-5">
+            <div className="p-2.5 sm:p-3">
               {viewMode === 'layered' ? (
                 <LayeredTraceTopology
                   result={result}
                   nodes={nodeDetails}
                   selectedHop={selectedHop}
                   onSelectHop={setSelectedHop}
+                  animate={animateFlow}
                 />
               ) : (
                 <div className="overflow-x-auto">
