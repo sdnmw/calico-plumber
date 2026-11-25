@@ -311,7 +311,13 @@ const offlineReportHTMLTemplate = `<!DOCTYPE html>
 
   {{if .KernelAudit}}
   <div class="section">
-    <h2>节点内核网络、Conntrack / NAT 与 MTU 隐患体检 <span class="badge {{badgeClass .KernelAudit.OverallStatus}}">{{.KernelAudit.OverallStatus}} ({{.KernelAudit.AverageScore}}/100)</span></h2>
+    <h2>网络平面体检：模式 · MTU · MAC/ARP · NAT 与底层内核证据 <span class="badge {{badgeClass .KernelAudit.OverallStatus}}">{{.KernelAudit.OverallStatus}} ({{.KernelAudit.AverageScore}}/100)</span></h2>
+    {{if .KernelAudit.NetworkMode.Summary}}
+    <div style="margin-bottom:10px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;">
+      <strong>Calico 网络模式 ({{.KernelAudit.NetworkMode.EncapMode}})</strong>：{{.KernelAudit.NetworkMode.Summary}}
+      <div class="mono" style="margin-top:4px;color:#475569;">物理 MTU={{.KernelAudit.NetworkMode.PhysicalMTU}}B · 封装开销={{.KernelAudit.NetworkMode.EncapOverheadBytes}}B · 推荐 Pod MTU={{.KernelAudit.NetworkMode.RecommendedPodMTU}}B · NAT Outgoing Pools={{.KernelAudit.NetworkMode.NATOutgoingPools}}/{{.KernelAudit.NetworkMode.TotalPools}}</div>
+    </div>
+    {{end}}
     {{if .KernelAudit.Findings}}
       {{range .KernelAudit.Findings}}
       <div class="finding">
@@ -321,30 +327,30 @@ const offlineReportHTMLTemplate = `<!DOCTYPE html>
           <span>{{.Title}}</span>
         </div>
         <div>{{.Detail}}</div>
+        {{if .KernelEvidence}}<div class="mono" style="margin-top:4px;color:#64748b;">底层内核证据: {{.KernelEvidence}}</div>{{end}}
         {{if .Remediation}}<div class="finding-rem">修复建议: {{.Remediation}}</div>{{end}}
       </div>
       {{end}}
     {{else}}
-      <div class="empty">所有节点的 Conntrack、SNAT、核心 Sysctl 与多层 MTU 检查均健康，无隐患项。</div>
+      <div class="empty">所有节点的二层 MAC/ARP、多层 MTU、NAT 转发与底层内核状态均健康，无隐患项。</div>
     {{end}}
 
-    <h3>各节点 Conntrack 与 MTU 实时状态</h3>
+    <h3>各节点二层 MAC / 网关 ARP / MTU 与 NAT 状态</h3>
     <table>
       <thead>
         <tr>
-          <th>节点</th><th>内核</th><th>评分</th><th>Conntrack 使用率</th><th>insert_failed / drop / early_drop</th><th>SNAT --random-fully</th><th>物理 NIC / Tunnel / Veth MTU</th>
+          <th>节点</th><th>主网卡 / MAC</th><th>默认网关 ARP</th><th>Proxy ARP / ARP 表</th><th>物理 NIC / Tunnel / Veth MTU</th><th>SNAT &amp; Conntrack 水位</th>
         </tr>
       </thead>
       <tbody>
         {{range .KernelAudit.Nodes}}
         <tr>
           <td><strong>{{.NodeName}}</strong><div class="mono" style="color:#64748b">{{.InternalIP}}</div></td>
-          <td class="mono">{{.KernelVersion}}</td>
-          <td><span class="badge {{badgeClass .Status}}">{{.Score}}</span></td>
-          <td class="mono">{{.Conntrack.Count}} / {{.Conntrack.Max}} ({{fmtFloat .Conntrack.UsagePct}}%)</td>
-          <td class="mono">{{.Conntrack.InsertFailed}} / {{.Conntrack.Drop}} / {{.Conntrack.EarlyDrop}}</td>
-          <td>{{if .Conntrack.SNATRandomFully}}<span class="badge badge-ok">已开启</span>{{else if .Conntrack.NATOutgoingEnabled}}<span class="badge badge-warn">未开启</span>{{else}}<span class="badge badge-info">无 NAT Outgoing</span>{{end}}</td>
+          <td class="mono">{{.L2.PrimaryNIC}}<div style="color:#64748b">{{.L2.PrimaryMAC}}</div></td>
+          <td class="mono">{{.L2.DefaultGateway}} {{if .L2.GatewayMAC}}({{.L2.GatewayMAC}}){{end}} {{if .L2.GatewayARPState}}<span class="badge {{badgeClass .L2.GatewayARPState}}">{{.L2.GatewayARPState}}</span>{{end}}</td>
+          <td class="mono">ProxyARP {{.L2.ProxyARPVeths}}/{{.L2.TotalCaliVeths}} · ARP {{.L2.ARPCount}}/{{.L2.ARPGCThresh3}}</td>
           <td class="mono">{{.MTU.PrimaryNIC}}={{.MTU.PrimaryMTU}}{{if .MTU.TunnelIface}} · {{.MTU.TunnelIface}}={{.MTU.TunnelMTU}}{{end}} · veth({{.MTU.SampledVethCount}})={{.MTU.MinVethMTU}}..{{.MTU.MaxVethMTU}}</td>
+          <td class="mono">{{if .Conntrack.SNATRandomFully}}random-fully ✓{{else}}random-fully ✗{{end}} · CT {{fmtFloat .Conntrack.UsagePct}}% (drop={{.Conntrack.Drop}})</td>
         </tr>
         {{end}}
       </tbody>

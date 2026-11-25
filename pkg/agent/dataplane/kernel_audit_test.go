@@ -49,7 +49,16 @@ func TestEvaluateKernelAuditFindings(t *testing.T) {
 		Status: "critical", Detail: "mismatch",
 	}
 
-	findings, score, status := evaluateKernelAuditFindings("node-1", ct, sysctls, mtu)
+	l2 := model.L2NetworkInfo{
+		PrimaryNIC:      "ens4",
+		PrimaryMAC:      "52:54:00:aa:bb:cc",
+		DefaultGateway:  "192.168.118.1",
+		GatewayARPState: "FAILED",
+		ProxyARPVeths:   10,
+		TotalCaliVeths:  10,
+	}
+
+	findings, score, status := evaluateKernelAuditFindings("node-1", l2, ct, sysctls, mtu)
 	if status != "critical" {
 		t.Fatalf("expected critical status, got %s", status)
 	}
@@ -57,6 +66,11 @@ func TestEvaluateKernelAuditFindings(t *testing.T) {
 		t.Fatalf("expected severely degraded score, got %d", score)
 	}
 	if len(findings) < 5 {
-		t.Fatalf("expected >= 5 findings (ct high, ct drop, insert_failed, random-fully, sysctl, mtu), got %d", len(findings))
+		t.Fatalf("expected >= 5 findings (gw arp, ct high, nat race, random-fully, sysctl, mtu), got %d", len(findings))
+	}
+	for _, f := range findings {
+		if f.KernelEvidence == "" {
+			t.Errorf("expected finding %s to include KernelEvidence drilldown", f.ID)
+		}
 	}
 }

@@ -80,7 +80,197 @@ func (a *Auditor) RunKernelAudit(ctx context.Context) *model.ClusterKernelAuditR
 	}
 	wg.Wait()
 
-	return AggregateKernelAudit(encap, results)
+	// Build IP -> K8s Node / Pod lookup maps for L2 ARP Neighbor & BGP Peer enrichment
+	nodeIPToName := make(map[string]string, len(nodes))
+	for _, n := range nodes {
+		if ip := k8s.NodeInternalIP(n); ip != "" {
+			nodeIPToName[ip] = n.Name
+		}
+	}
+	podIPToName := make(map[string]string)
+	for _, p := range a.k8sStore.ListPods("") {
+		if p.IP != "" && !p.HostNetwork {
+			podIPToName[p.IP] = p.Namespace + "/" + p.Name
+		}
+	}
+
+	// Enrich L2 ARP neighbors with K8s peer identities and detect failed cluster-node ARP
+	for i := range results {
+		n := &results[i]
+		for j := range n.L2.Neighbors {
+			nb := &n.L2.Neighbors[j]
+			if peerNode, ok := nodeIPToName[nb.IP]; ok {
+				nb.Role = "cluster-node"
+				nb.PeerName = peerNode
+				if nb.State == "FAILED" || nb.State == "INCOMPLETE" {
+					n.Findings = append(n.Findings, model.AuditFinding{
+						ID:             fmt.Sprintf("%s-node-arp-fail-%s", n.NodeName, peerNode),
+						NodeName:       n.NodeName,
+						Severity:       "critical",
+						Category:       "l2",
+						Title:          fmt.Sprintf("对端集群节点 %s (%s) 二层 ARP 解析失败 (%s)", peerNode, nb.IP, nb.State),
+						Detail:         fmt.Sprintf("节点 %s 无法在二层解析同网段集群节点 %s 的 MAC 地址，跨节点 BGP / Pod 流量可能中断。", n.NodeName, peerNode),
+						KernelEvidence: fmt.Sprintf("ip neigh: %s dev %s lladdr %s %s", nb.IP, nb.Dev, nb.MAC, nb.State),
+						Remediation:    fmt.Sprintf("在节点 %s 上排查物理交换机/VLAN/安全组: arping -I %s %s", n.NodeName, nb.Dev, nb.IP),
+					})
+					if n.Status != "critical" {
+						n.Status = "critical"
+					}
+					n.Score -= 20
+					if n.Score < 0 {
+						n.Score = 0
+					}
+				}
+			} else if podName, ok := podIPToName[nb.IP]; ok {
+				if nb.Role == "" || nb.Role == "other" {
+					nb.Role = "pod-veth"
+				}
+				nb.PeerName = podName
+			} else if nb.Role == "" {
+				nb.Role = "other"
+			}
+		}
+		sort.Slice(n.L2.Neighbors, func(aIdx, bIdx int) bool {
+			ra, rb := arpEntrySortRank(n.L2.Neighbors[aIdx]), arpEntrySortRank(n.L2.Neighbors[bIdx])
+			if ra != rb {
+				return ra < rb
+			}
+			return n.L2.Neighbors[aIdx].IP < n.L2.Neighbors[bIdx].IP
+		})
+	}
+
+	report := AggregateKernelAudit(encap, results)
+
+	// Populate Calico NetworkModeProfile & BGPNeighbors so UI shows network architecture first
+	_, inst, felix, bgpCfg, rawPeers, kpMode, _, _, _, _, _ := a.k8sStore.GetClusterMetadata()
+	ipam := a.k8sStore.GetIPAMSnapshot()
+	snaps := a.flows.ListNodeSnapshots()
+
+	detectedKP := kpMode
+	var bgpNeighbors []model.BGPPeerSummary
+	for _, n := range nodes {
+		if sn, ok := snaps[n.Name]; ok {
+			if (detectedKP == model.KubeProxyUnknown || detectedKP == "") && sn.KubeProxyMode != "" {
+				detectedKP = sn.KubeProxyMode
+			}
+			for _, bp := range sn.BGPProtocols {
+				if !strings.EqualFold(bp.Proto, "BGP") {
+					continue
+				}
+				scope := "Global"
+				if strings.HasPrefix(bp.Name, "Mesh_") {
+					scope = "Mesh"
+				} else if strings.HasPrefix(bp.Name, "Node_") {
+					scope = "Node"
+				}
+				state := bp.Info
+				if state == "" {
+					state = bp.State
+				}
+				bgpNeighbors = append(bgpNeighbors, model.BGPPeerSummary{
+					Name:       bp.Name,
+					SourceNode: n.Name,
+					PeerIP:     bp.PeerIP,
+					PeerNode:   nodeIPToName[bp.PeerIP],
+					ASNumber:   bgpCfg.ASNumber,
+					Scope:      scope,
+					State:      state,
+					Since:      bp.Since,
+				})
+			}
+		}
+	}
+	for _, rp := range rawPeers {
+		bgpNeighbors = append(bgpNeighbors, model.BGPPeerSummary{
+			Name:       rp.Name,
+			SourceNode: rp.Node,
+			PeerIP:     rp.PeerIP,
+			ASNumber:   rp.ASNumber,
+			Scope:      "CRD Peer",
+			State:      "Configured",
+		})
+	}
+	report.BGPNeighbors = bgpNeighbors
+
+	linuxDP := inst.LinuxDataplane
+	if felix.BPFEnabled {
+		linuxDP = "eBPF"
+	} else if strings.EqualFold(felix.NFTablesMode, "Enabled") {
+		linuxDP = "NFTables"
+	}
+
+	minPhyMTU := 0
+	for _, n := range report.Nodes {
+		if n.MTU.PrimaryMTU > 0 && (minPhyMTU == 0 || n.MTU.PrimaryMTU < minPhyMTU) {
+			minPhyMTU = n.MTU.PrimaryMTU
+		}
+	}
+	if minPhyMTU == 0 {
+		minPhyMTU = 1500
+	}
+
+	overhead := 0
+	modeSummary := ""
+	switch encap {
+	case model.EncapIPIPAlways:
+		overhead = 20
+		modeSummary = "IPIP 全隧道封装：跨节点报文外层增加 20 字节 IPv4 头部（经 tunl0 接口），Pod MTU 必须 ≤ 物理网卡 MTU - 20B，否则触发大包分片或黑洞。"
+	case model.EncapIPIPCrossSubnet:
+		overhead = 20
+		modeSummary = "IPIP CrossSubnet 混合模式：同子网节点直连 BGP 路由，跨子网节点自动走 IPIP 隧道（+20B 包头），Pod MTU 需按最窄路径 ≤ 物理 MTU - 20B 对齐。"
+	case model.EncapVXLANAlways:
+		overhead = 50
+		modeSummary = "VXLAN 全叠加隧道：跨节点报文封装 UDP/4789 + VXLAN + 内层以太帧（+50B 包头，经 vxlan.calico），Pod MTU 必须 ≤ 物理网卡 MTU - 50B。"
+	case model.EncapVXLANCrossSubnet:
+		overhead = 50
+		modeSummary = "VXLAN CrossSubnet 混合模式：同子网直连，跨子网走 VXLAN 封装（+50B 包头），Pod MTU 建议 ≤ 物理网卡 MTU - 50B。"
+	default:
+		overhead = 0
+		modeSummary = "BGP 纯三层直连模式：节点间通过 BIRD BGP 交换路由，直接经物理网卡原生转发 Pod IP 报文，零隧道封装开销（0B），Pod MTU 可与物理网卡 MTU 保持 1:1 一致。"
+	}
+
+	natPools := 0
+	for _, p := range ipam.Pools {
+		if p.NATOutgoing {
+			natPools++
+		}
+	}
+
+	report.NetworkMode = model.NetworkModeProfile{
+		EncapMode:          encap,
+		Dataplane:          linuxDP,
+		KubeProxyMode:      detectedKP,
+		BGPEnabled:         inst.BGPEnabled,
+		BGPASNumber:        bgpCfg.ASNumber,
+		NodeToNodeMesh:     bgpCfg.NodeToNodeMesh,
+		ConfiguredMTU:      inst.MTU,
+		PhysicalMTU:        minPhyMTU,
+		EncapOverheadBytes: overhead,
+		RecommendedPodMTU:  minPhyMTU - overhead,
+		Summary:            modeSummary,
+		NATOutgoingPools:   natPools,
+		TotalPools:         len(ipam.Pools),
+	}
+
+	return report
+}
+
+func arpEntrySortRank(e model.ARPEntry) int {
+	if e.State == "FAILED" || e.State == "INCOMPLETE" {
+		return -1
+	}
+	switch e.Role {
+	case "gateway":
+		return 0
+	case "cluster-node":
+		return 1
+	case "other":
+		return 2
+	case "pod-veth":
+		return 3
+	default:
+		return 2
+	}
 }
 
 // AggregateKernelAudit computes cluster summary metrics and cross-node consistency findings.

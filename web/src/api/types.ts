@@ -627,6 +627,47 @@ export interface MTUCheck {
   detail: string;
 }
 
+export interface ARPEntry {
+  ip: string;
+  mac: string;
+  dev: string;
+  state: string;
+  role?: 'gateway' | 'cluster-node' | 'pod-veth' | 'other' | string;
+  peerName?: string;
+}
+
+export interface L2NetworkInfo {
+  primaryNIC: string;
+  primaryMAC: string;
+  primaryIP: string;
+  defaultGateway?: string;
+  gatewayMAC?: string;
+  gatewayARPState?: string;
+  proxyARPVeths: number;
+  totalCaliVeths: number;
+  arpCount: number;
+  arpFailedCount: number;
+  arpGCThresh3: number;
+  arpUsagePct: number;
+  neighbors?: ARPEntry[];
+}
+
+export interface NetworkModeProfile {
+  encapMode: string;
+  dataplane: string;
+  kubeProxyMode: string;
+  bgpEnabled: boolean;
+  bgpASNumber: number;
+  nodeToNodeMesh: boolean;
+  configuredMTU: number;
+  physicalMTU: number;
+  encapOverheadBytes: number;
+  recommendedPodMTU: number;
+  summary: string;
+  natOutgoingPools: number;
+  totalPools: number;
+}
+
 export interface AuditFinding {
   id: string;
   nodeName?: string;
@@ -634,6 +675,7 @@ export interface AuditFinding {
   category: string;
   title: string;
   detail: string;
+  kernelEvidence?: string;
   remediation?: string;
 }
 
@@ -644,6 +686,7 @@ export interface NodeKernelAudit {
   score: number;
   status: 'healthy' | 'warning' | 'critical' | 'unreachable';
   error?: string;
+  l2?: L2NetworkInfo;
   conntrack: ConntrackStats;
   sysctls: SysctlCheck[];
   mtu: MTUCheck;
@@ -656,6 +699,8 @@ export interface ClusterKernelAuditReport {
   overallStatus: 'healthy' | 'warning' | 'critical';
   averageScore: number;
   encapMode: string;
+  networkMode?: NetworkModeProfile;
+  bgpNeighbors?: BGPPeerSummary[];
   criticalCount: number;
   warningCount: number;
   nodes: NodeKernelAudit[];

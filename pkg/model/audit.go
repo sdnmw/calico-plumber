@@ -51,18 +51,63 @@ type MTUCheck struct {
 	Detail            string   `json:"detail"`
 }
 
-// AuditFinding describes a concrete actionable risk discovered during kernel or route auditing.
-type AuditFinding struct {
-	ID          string `json:"id"`
-	NodeName    string `json:"nodeName,omitempty"`
-	Severity    string `json:"severity"` // critical, warning, info
-	Category    string `json:"category"` // conntrack, sysctl, mtu, route, bgp
-	Title       string `json:"title"`
-	Detail      string `json:"detail"`
-	Remediation string `json:"remediation,omitempty"`
+// ARPEntry represents a live IPv4 ARP/Neighbor table entry on a node.
+type ARPEntry struct {
+	IP       string `json:"ip"`
+	MAC      string `json:"mac"`
+	Dev      string `json:"dev"`
+	State    string `json:"state"`              // REACHABLE, STALE, DELAY, PROBE, PERMANENT, FAILED, INCOMPLETE
+	Role     string `json:"role,omitempty"`     // gateway, cluster-node, pod-veth, other
+	PeerName string `json:"peerName,omitempty"` // resolved K8s node or pod name if known
 }
 
-// NodeKernelAudit summarizes one node's live kernel, conntrack, NAT, and MTU health.
+// L2NetworkInfo summarizes a node's L2 NIC MAC, default gateway ARP, Calico Proxy ARP, and neighbor table health.
+type L2NetworkInfo struct {
+	PrimaryNIC      string     `json:"primaryNIC"`
+	PrimaryMAC      string     `json:"primaryMAC"`
+	PrimaryIP       string     `json:"primaryIP"`
+	DefaultGateway  string     `json:"defaultGateway,omitempty"`
+	GatewayMAC      string     `json:"gatewayMAC,omitempty"`
+	GatewayARPState string     `json:"gatewayARPState,omitempty"`
+	ProxyARPVeths   int        `json:"proxyARPVeths"`
+	TotalCaliVeths  int        `json:"totalCaliVeths"`
+	ARPCount        int        `json:"arpCount"`
+	ARPFailedCount  int        `json:"arpFailedCount"`
+	ARPGCThresh3    int        `json:"arpGCThresh3"`
+	ARPUsagePct     float64    `json:"arpUsagePct"`
+	Neighbors       []ARPEntry `json:"neighbors,omitempty"`
+}
+
+// NetworkModeProfile describes the cluster's Calico encapsulation mode, MTU overhead math, and NAT/BGP settings.
+type NetworkModeProfile struct {
+	EncapMode          CalicoEncapMode `json:"encapMode"`
+	Dataplane          string          `json:"dataplane"`
+	KubeProxyMode      KubeProxyMode   `json:"kubeProxyMode"`
+	BGPEnabled         bool            `json:"bgpEnabled"`
+	BGPASNumber        int             `json:"bgpASNumber"`
+	NodeToNodeMesh     bool            `json:"nodeToNodeMesh"`
+	ConfiguredMTU      int             `json:"configuredMTU"`
+	PhysicalMTU        int             `json:"physicalMTU"`
+	EncapOverheadBytes int             `json:"encapOverheadBytes"` // 0 (BGP Direct), 20 (IPIP), 50 (VXLAN)
+	RecommendedPodMTU  int             `json:"recommendedPodMTU"`
+	Summary            string          `json:"summary"`
+	NATOutgoingPools   int             `json:"natOutgoingPools"`
+	TotalPools         int             `json:"totalPools"`
+}
+
+// AuditFinding describes a concrete actionable risk discovered during network/kernel auditing.
+type AuditFinding struct {
+	ID             string `json:"id"`
+	NodeName       string `json:"nodeName,omitempty"`
+	Severity       string `json:"severity"` // critical, warning, info
+	Category       string `json:"category"` // nat, mtu, l2, routing, conntrack, sysctl, route, bgp
+	Title          string `json:"title"`
+	Detail         string `json:"detail"`
+	KernelEvidence string `json:"kernelEvidence,omitempty"` // progressive drilldown into conntrack/sysctl raw evidence
+	Remediation    string `json:"remediation,omitempty"`
+}
+
+// NodeKernelAudit summarizes one node's live L2/MAC/ARP, MTU, NAT, Conntrack, and sysctl health.
 type NodeKernelAudit struct {
 	NodeName      string         `json:"nodeName"`
 	InternalIP    string         `json:"internalIP,omitempty"`
@@ -70,6 +115,7 @@ type NodeKernelAudit struct {
 	Score         int            `json:"score"`  // 0..100
 	Status        string         `json:"status"` // healthy, warning, critical, unreachable
 	Error         string         `json:"error,omitempty"`
+	L2            L2NetworkInfo  `json:"l2"`
 	Conntrack     ConntrackStats `json:"conntrack"`
 	Sysctls       []SysctlCheck  `json:"sysctls"`
 	MTU           MTUCheck       `json:"mtu"`
@@ -77,16 +123,18 @@ type NodeKernelAudit struct {
 	CollectedAt   time.Time      `json:"collectedAt"`
 }
 
-// ClusterKernelAuditReport aggregates kernel/NAT/MTU audits across all cluster nodes.
+// ClusterKernelAuditReport aggregates L2/MTU/NAT/Conntrack/BGP network audits across all cluster nodes.
 type ClusterKernelAuditReport struct {
-	GeneratedAt   time.Time         `json:"generatedAt"`
-	OverallStatus string            `json:"overallStatus"` // healthy, warning, critical
-	AverageScore  int               `json:"averageScore"`
-	EncapMode     CalicoEncapMode   `json:"encapMode"`
-	CriticalCount int               `json:"criticalCount"`
-	WarningCount  int               `json:"warningCount"`
-	Nodes         []NodeKernelAudit `json:"nodes"`
-	Findings      []AuditFinding    `json:"findings"`
+	GeneratedAt   time.Time          `json:"generatedAt"`
+	OverallStatus string             `json:"overallStatus"` // healthy, warning, critical
+	AverageScore  int                `json:"averageScore"`
+	EncapMode     CalicoEncapMode    `json:"encapMode"`
+	NetworkMode   NetworkModeProfile `json:"networkMode"`
+	BGPNeighbors  []BGPPeerSummary   `json:"bgpNeighbors,omitempty"`
+	CriticalCount int                `json:"criticalCount"`
+	WarningCount  int                `json:"warningCount"`
+	Nodes         []NodeKernelAudit  `json:"nodes"`
+	Findings      []AuditFinding     `json:"findings"`
 }
 
 // PMTUDProbeRequest triggers an ICMP Don't Fragment (DF) Path MTU Discovery probe from inside a Pod's netns.

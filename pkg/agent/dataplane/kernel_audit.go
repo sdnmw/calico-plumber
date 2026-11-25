@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -14,8 +15,8 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-// InspectNodeKernelAudit performs a comprehensive live kernel network, conntrack, NAT, sysctl,
-// and multi-layer MTU audit on the local Kubernetes node.
+// InspectNodeKernelAudit performs a comprehensive live L2 (MAC/ARP/ProxyARP), MTU, NAT,
+// Conntrack, and sysctl network audit on the local Kubernetes node.
 func InspectNodeKernelAudit(nodeName string) model.NodeKernelAudit {
 	hostInfo := InspectHost(nodeName)
 	out := model.NodeKernelAudit{
@@ -27,7 +28,10 @@ func InspectNodeKernelAudit(nodeName string) model.NodeKernelAudit {
 		CollectedAt:   time.Now(),
 	}
 
-	// 1. Conntrack & NAT stats
+	// 1. L2 MAC / Default Gateway / ARP Neighbor Table & Calico Proxy ARP
+	out.L2 = inspectNodeL2(hostInfo)
+
+	// 2. Conntrack & NAT stats
 	ct := inspectConntrackStats()
 	ct.AcctEnabled = hostInfo.ConntrackAcct
 	natOut, randomFully := inspectCalicoNATDetail()
@@ -35,15 +39,145 @@ func InspectNodeKernelAudit(nodeName string) model.NodeKernelAudit {
 	ct.SNATRandomFully = randomFully
 	out.Conntrack = ct
 
-	// 2. Sysctl audit
+	// 3. Sysctl audit
 	out.Sysctls = inspectKernelSysctls()
 
-	// 3. Multi-layer MTU audit
+	// 4. Multi-layer MTU audit
 	out.MTU = inspectNodeMTU(hostInfo)
 
-	// 4. Synthesize actionable findings & score
-	out.Findings, out.Score, out.Status = evaluateKernelAuditFindings(nodeName, out.Conntrack, out.Sysctls, out.MTU)
+	// 5. Synthesize network-readable findings with underlying kernel drilldown evidence
+	out.Findings, out.Score, out.Status = evaluateKernelAuditFindings(nodeName, out.L2, out.Conntrack, out.Sysctls, out.MTU)
 	return out
+}
+
+func inspectNodeL2(hostInfo HostDataplaneInfo) model.L2NetworkInfo {
+	l2 := model.L2NetworkInfo{
+		PrimaryNIC: hostInfo.PrimaryNIC,
+		PrimaryIP:  hostInfo.PrimaryIP,
+	}
+
+	linkNames := make(map[int]string)
+	if links, err := netlink.LinkList(); err == nil {
+		for _, l := range links {
+			attrs := l.Attrs()
+			name := attrs.Name
+			linkNames[attrs.Index] = name
+			if name == hostInfo.PrimaryNIC && len(attrs.HardwareAddr) > 0 {
+				l2.PrimaryMAC = attrs.HardwareAddr.String()
+			}
+			if strings.HasPrefix(name, "cali") {
+				l2.TotalCaliVeths++
+				if v, ok := readProcStr(fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/proxy_arp", name)); ok && v == "1" {
+					l2.ProxyARPVeths++
+				}
+			}
+		}
+	}
+
+	// Default gateway from main IPv4 routing table
+	if routes, err := netlink.RouteList(nil, netlink.FAMILY_V4); err == nil {
+		for _, r := range routes {
+			if (r.Dst == nil || r.Dst.String() == "0.0.0.0/0") && r.Gw != nil {
+				l2.DefaultGateway = r.Gw.String()
+				break
+			}
+		}
+	}
+
+	// ARP neighbor table capacity (gc_thresh3)
+	if v, ok := readProcStr("/proc/sys/net/ipv4/neigh/default/gc_thresh3"); ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			l2.ARPGCThresh3 = n
+		}
+	}
+
+	// Live IPv4 ARP / Neighbor cache via Netlink
+	if neighs, err := netlink.NeighList(0, netlink.FAMILY_V4); err == nil {
+		for _, n := range neighs {
+			if n.IP == nil || n.IP.IsMulticast() || n.IP.IsLoopback() {
+				continue
+			}
+			state := nudStateName(n.State)
+			if state == "NOARP" || state == "NONE" {
+				continue
+			}
+			ipStr := n.IP.String()
+			macStr := ""
+			if len(n.HardwareAddr) > 0 {
+				macStr = n.HardwareAddr.String()
+			}
+			dev := linkNames[n.LinkIndex]
+			entry := model.ARPEntry{
+				IP:    ipStr,
+				MAC:   macStr,
+				Dev:   dev,
+				State: state,
+			}
+			if strings.HasPrefix(dev, "cali") {
+				entry.Role = "pod-veth"
+			}
+			if ipStr == l2.DefaultGateway {
+				entry.Role = "gateway"
+				l2.GatewayMAC = macStr
+				l2.GatewayARPState = state
+			}
+			if state == "FAILED" || state == "INCOMPLETE" {
+				l2.ARPFailedCount++
+			}
+			l2.Neighbors = append(l2.Neighbors, entry)
+		}
+	}
+
+	l2.ARPCount = len(l2.Neighbors)
+	if l2.ARPGCThresh3 > 0 {
+		l2.ARPUsagePct = math.Round(float64(l2.ARPCount)/float64(l2.ARPGCThresh3)*10000) / 100
+	}
+
+	sort.Slice(l2.Neighbors, func(i, j int) bool {
+		if l2.Neighbors[i].Role != l2.Neighbors[j].Role {
+			return arpRoleRank(l2.Neighbors[i].Role) < arpRoleRank(l2.Neighbors[j].Role)
+		}
+		return l2.Neighbors[i].IP < l2.Neighbors[j].IP
+	})
+	return l2
+}
+
+func nudStateName(state int) string {
+	switch {
+	case state&netlink.NUD_PERMANENT != 0:
+		return "PERMANENT"
+	case state&netlink.NUD_REACHABLE != 0:
+		return "REACHABLE"
+	case state&netlink.NUD_STALE != 0:
+		return "STALE"
+	case state&netlink.NUD_DELAY != 0:
+		return "DELAY"
+	case state&netlink.NUD_PROBE != 0:
+		return "PROBE"
+	case state&netlink.NUD_INCOMPLETE != 0:
+		return "INCOMPLETE"
+	case state&netlink.NUD_FAILED != 0:
+		return "FAILED"
+	case state&netlink.NUD_NOARP != 0:
+		return "NOARP"
+	default:
+		return "NONE"
+	}
+}
+
+func arpRoleRank(role string) int {
+	switch role {
+	case "gateway":
+		return 0
+	case "cluster-node":
+		return 1
+	case "other":
+		return 2
+	case "pod-veth":
+		return 3
+	default:
+		return 2
+	}
 }
 
 func inspectConntrackStats() model.ConntrackStats {
@@ -388,162 +522,233 @@ func inspectNodeMTU(hostInfo HostDataplaneInfo) model.MTUCheck {
 	return mc
 }
 
-// EvaluateKernelAuditFindings scores one node and produces structured actionable findings.
+// evaluateKernelAuditFindings scores one node and produces network-domain findings with kernel drilldown evidence.
 func evaluateKernelAuditFindings(
 	nodeName string,
+	l2 model.L2NetworkInfo,
 	ct model.ConntrackStats,
 	sysctls []model.SysctlCheck,
 	mtu model.MTUCheck,
 ) ([]model.AuditFinding, int, string) {
-	var findings []model.AuditFinding
+	findings := make([]model.AuditFinding, 0)
 	score := 100
 	hasCritical := false
 	hasWarn := false
 
-	// Conntrack capacity check
+	// 1. L2 MAC / ARP / Default Gateway / Calico Proxy ARP checks
+	if l2.DefaultGateway != "" && (l2.GatewayARPState == "FAILED" || l2.GatewayARPState == "INCOMPLETE") {
+		hasCritical = true
+		score -= 25
+		findings = append(findings, model.AuditFinding{
+			ID:             nodeName + "-gw-arp-failed",
+			NodeName:       nodeName,
+			Severity:       "critical",
+			Category:       "l2",
+			Title:          fmt.Sprintf("二层默认网关 %s 的 ARP 解析失败 (%s)", l2.DefaultGateway, l2.GatewayARPState),
+			Detail:         fmt.Sprintf("宿主机物理网卡 %s 无法完成对默认网关 %s 的 MAC 地址解析，跨网段路由和集群外向访问将中断。", l2.PrimaryNIC, l2.DefaultGateway),
+			KernelEvidence: fmt.Sprintf("ip neigh: gateway=%s dev=%s mac=%s state=%s", l2.DefaultGateway, l2.PrimaryNIC, l2.GatewayMAC, l2.GatewayARPState),
+			Remediation:    fmt.Sprintf("检查物理网卡链路与 VLAN/网关连通性: arping -I %s %s && ip neigh show %s", l2.PrimaryNIC, l2.DefaultGateway, l2.DefaultGateway),
+		})
+	}
+	if l2.ARPUsagePct >= 75 {
+		hasWarn = true
+		score -= 10
+		findings = append(findings, model.AuditFinding{
+			ID:             nodeName + "-arp-table-high",
+			NodeName:       nodeName,
+			Severity:       "warning",
+			Category:       "l2",
+			Title:          fmt.Sprintf("二层 ARP 邻居表使用率偏高 %.1f%% (%d / %d)", l2.ARPUsagePct, l2.ARPCount, l2.ARPGCThresh3),
+			Detail:         "二层同网段邻居 MAC 缓存接近内核上限，若继续增长将触发 ARP 表溢出并导致新通信对端无法解析 MAC 地址。",
+			KernelEvidence: fmt.Sprintf("net.ipv4.neigh.default.gc_thresh3=%d, 当前 IPv4 邻居条目=%d", l2.ARPGCThresh3, l2.ARPCount),
+			Remediation:    "调大 ARP 邻居表上限: sysctl -w net.ipv4.neigh.default.gc_thresh1=2048 net.ipv4.neigh.default.gc_thresh2=4096 net.ipv4.neigh.default.gc_thresh3=8192",
+		})
+	}
+	if l2.TotalCaliVeths > 0 && l2.ProxyARPVeths < l2.TotalCaliVeths {
+		hasWarn = true
+		score -= 8
+		findings = append(findings, model.AuditFinding{
+			ID:             nodeName + "-proxy-arp-off",
+			NodeName:       nodeName,
+			Severity:       "warning",
+			Category:       "l2",
+			Title:          fmt.Sprintf("部分容器 cali* 网卡未开启 Proxy ARP (%d/%d 已开启)", l2.ProxyARPVeths, l2.TotalCaliVeths),
+			Detail:         "Calico 依赖宿主机 cali* veth 的 Proxy ARP 代答容器内对虚拟网关 169.254.1.1 的 ARP 请求；关闭该开关会导致受影响 Pod 无法解析默认网关 MAC。",
+			KernelEvidence: fmt.Sprintf("/proc/sys/net/ipv4/conf/cali*/proxy_arp=1 命中 %d / %d", l2.ProxyARPVeths, l2.TotalCaliVeths),
+			Remediation:    "检查节点 calico-node Felix 日志，确认是否被其他网络工具覆盖了 cali* 接口 sysctl。",
+		})
+	}
+
+	// 2. NAT & Connection State Table (Network-first description + Conntrack drilldown evidence)
+	ctEvidence := fmt.Sprintf(
+		"nf_conntrack_count=%d / %d (%.2f%%) · buckets=%d · insert_failed=%d · drop=%d · early_drop=%d · invalid=%d · search_restart=%d · SNAT --random-fully=%v",
+		ct.Count, ct.Max, ct.UsagePct, ct.Buckets, ct.InsertFailed, ct.Drop, ct.EarlyDrop, ct.Invalid, ct.SearchRestart, ct.SNATRandomFully,
+	)
+
 	if ct.Max > 0 {
 		if ct.UsagePct >= 85 {
 			hasCritical = true
 			score -= 30
 			findings = append(findings, model.AuditFinding{
-				ID:          nodeName + "-ct-high",
-				NodeName:    nodeName,
-				Severity:    "critical",
-				Category:    "conntrack",
-				Title:       fmt.Sprintf("Conntrack 表使用率高达 %.1f%% (%d / %d)", ct.UsagePct, ct.Count, ct.Max),
-				Detail:      "连接跟踪表即将打满，一旦溢出内核将直接静默丢弃新建连接（dmesg: nf_conntrack: table full, dropping packet）。",
-				Remediation: "sysctl -w net.netfilter.nf_conntrack_max=524288 && echo 131072 > /sys/module/nf_conntrack/parameters/hashsize",
+				ID:             nodeName + "-ct-high",
+				NodeName:       nodeName,
+				Severity:       "critical",
+				Category:       "nat",
+				Title:          fmt.Sprintf("NAT 与连接状态表接近饱和 %.1f%% (%d / %d)", ct.UsagePct, ct.Count, ct.Max),
+				Detail:         "宿主机负责记录 NAT 转换映射与连接状态的会话表水位已超 85%，继续增长将导致新建 TCP/UDP 连接及 Service 访问被内核静默丢弃。",
+				KernelEvidence: ctEvidence,
+				Remediation:    "sysctl -w net.netfilter.nf_conntrack_max=524288 && echo 131072 > /sys/module/nf_conntrack/parameters/hashsize",
 			})
 		} else if ct.UsagePct >= 65 {
 			hasWarn = true
 			score -= 12
 			findings = append(findings, model.AuditFinding{
-				ID:          nodeName + "-ct-warn",
-				NodeName:    nodeName,
-				Severity:    "warning",
-				Category:    "conntrack",
-				Title:       fmt.Sprintf("Conntrack 表水位偏高 %.1f%% (%d / %d)", ct.UsagePct, ct.Count, ct.Max),
-				Detail:      "建议关注短连接与 UDP DNS 峰值并提前调大 nf_conntrack_max 与 buckets（推荐 max/buckets ≤ 4）。",
-				Remediation: "sysctl -w net.netfilter.nf_conntrack_max=524288",
+				ID:             nodeName + "-ct-warn",
+				NodeName:       nodeName,
+				Severity:       "warning",
+				Category:       "nat",
+				Title:          fmt.Sprintf("NAT 与连接状态表水位偏高 %.1f%% (%d / %d)", ct.UsagePct, ct.Count, ct.Max),
+				Detail:         "活跃 NAT 与连接状态会话数已超容量 65%，在短连接或 UDP DNS 突发峰值期间存在建表压力。",
+				KernelEvidence: ctEvidence,
+				Remediation:    "sysctl -w net.netfilter.nf_conntrack_max=524288",
 			})
 		}
 		if ct.Buckets > 0 && ct.Max/ct.Buckets > 8 {
 			hasWarn = true
 			score -= 5
 			findings = append(findings, model.AuditFinding{
-				ID:          nodeName + "-ct-hash",
-				NodeName:    nodeName,
-				Severity:    "warning",
-				Category:    "conntrack",
-				Title:       fmt.Sprintf("Conntrack 哈希桶比例偏低 (max/buckets = %d)", ct.Max/ct.Buckets),
-				Detail:      fmt.Sprintf("nf_conntrack_max=%d 但 buckets=%d，单桶链表偏长会增大查找冲突与 CPU 软中断开销。", ct.Max, ct.Buckets),
-				Remediation: fmt.Sprintf("echo %d > /sys/module/nf_conntrack/parameters/hashsize", ct.Max/4),
+				ID:             nodeName + "-ct-hash",
+				NodeName:       nodeName,
+				Severity:       "warning",
+				Category:       "nat",
+				Title:          fmt.Sprintf("NAT 状态表哈希桶比例偏低 (max/buckets = %d)", ct.Max/ct.Buckets),
+				Detail:         "连接状态查询哈希链表偏长，高吞吐 NAT/Service 转发场景下会增加软中断延迟。",
+				KernelEvidence: ctEvidence,
+				Remediation:    fmt.Sprintf("echo %d > /sys/module/nf_conntrack/parameters/hashsize", ct.Max/4),
 			})
 		}
 	}
 
-	// Conntrack drop / insert_failed / race checks
-	if ct.Drop > 0 {
+	// Unified NAT / SNAT port race & state-table drop finding
+	if ct.EarlyDrop > 0 {
 		hasCritical = true
-		score -= 20
+		score -= 25
 		findings = append(findings, model.AuditFinding{
-			ID:          nodeName + "-ct-drop",
-			NodeName:    nodeName,
-			Severity:    "critical",
-			Category:    "conntrack",
-			Title:       fmt.Sprintf("内核 Conntrack 累计发生 %d 次丢包 (drop=%d, early_drop=%d)", ct.Drop, ct.Drop, ct.EarlyDrop),
-			Detail:      "通常由 Conntrack 表满、SNAT 源端口冲突或内存压力引起，会导致业务偶发建连超时或 DNS 5 秒卡顿。",
-			Remediation: "检查 dmesg | grep conntrack，核查 nf_conntrack_max 及 Calico natOutgoing --random-fully 配置。",
+			ID:             nodeName + "-nat-early-drop",
+			NodeName:       nodeName,
+			Severity:       "critical",
+			Category:       "nat",
+			Title:          fmt.Sprintf("NAT 状态表曾因满载强制淘汰活跃连接（early_drop=%d）", ct.EarlyDrop),
+			Detail:         "内核连接跟踪表曾出现容量耗尽并提前驱逐活跃会话，直接引发业务偶发断连、Service 超时或 NAT 回包丢失。",
+			KernelEvidence: ctEvidence,
+			Remediation:    "立即检查 dmesg | grep conntrack 并调大 net.netfilter.nf_conntrack_max 与 hashsize。",
 		})
-	}
-	if ct.InsertFailed > 0 {
+	} else if ct.Drop > 0 || ct.InsertFailed > 0 {
+		isSevere := ct.Drop >= 100 || ct.InsertFailed >= 100 || ct.UsagePct >= 65
 		sev := "warning"
-		if ct.InsertFailed > 100 {
+		if isSevere {
 			sev = "critical"
 			hasCritical = true
-			score -= 15
+			score -= 20
 		} else {
 			hasWarn = true
 			score -= 8
 		}
+		cnt := ct.Drop
+		if ct.InsertFailed > cnt {
+			cnt = ct.InsertFailed
+		}
 		findings = append(findings, model.AuditFinding{
-			ID:          nodeName + "-ct-insert-failed",
-			NodeName:    nodeName,
-			Severity:    sev,
-			Category:    "conntrack",
-			Title:       fmt.Sprintf("Conntrack 插入冲突 insert_failed=%d（典型 SNAT/UDP 端口竞争特征）", ct.InsertFailed),
-			Detail:      "多核并发通过 Calico SNAT 或 kube-proxy 访问同一目标（如 CoreDNS UDP:53）时，容易因源端口竞争导致 insert_failed 丢包。",
-			Remediation: "确保 Calico 开启 --random-fully (FelixConfiguration natPortRange/iptablesMarkMask) 并在业务侧启用 NodeLocal DNSCache 或 TCP DNS。",
+			ID:             nodeName + "-nat-port-race",
+			NodeName:       nodeName,
+			Severity:       sev,
+			Category:       "nat",
+			Title:          fmt.Sprintf("出向 NAT / UDP 端口复用曾发生 %d 次偶发冲突丢包", cnt),
+			Detail:         "多核并发通过 Calico SNAT 出集群或访问 CoreDNS (UDP:53) 时，源端口分配竞争会触发状态表插入冲突并丢弃个别报文（业务侧常表现为偶发 DNS 5 秒延迟或短连接重传）。当前表水位健康，属于低频并发竞态。",
+			KernelEvidence: ctEvidence,
+			Remediation:    "保持 Calico MASQUERADE --random-fully 开启；若业务 DNS 偶发 5 秒超时，建议部署 NodeLocal DNSCache 或在 resolv.conf 开启 single-request-reopen。",
 		})
 	}
+
 	if ct.NATOutgoingEnabled && !ct.SNATRandomFully {
 		hasWarn = true
 		score -= 8
 		findings = append(findings, model.AuditFinding{
-			ID:          nodeName + "-snat-no-random-fully",
-			NodeName:    nodeName,
-			Severity:    "warning",
-			Category:    "conntrack",
-			Title:       "Calico cali-nat-outgoing 未启用 --random-fully",
-			Detail:      "未启用 --random-fully 时高并发短连接 SNAT 更易触发 Conntrack 源端口冲突（insert_failed）。",
-			Remediation: "升级 iptables/Calico 并确认 FelixConfiguration 未禁用 random-fully SNAT。",
+			ID:             nodeName + "-snat-no-random-fully",
+			NodeName:       nodeName,
+			Severity:       "warning",
+			Category:       "nat",
+			Title:          "出集群 SNAT (cali-nat-outgoing) 未启用全随机源端口 (--random-fully)",
+			Detail:         "Pod 访问集群外地址做 SNAT 转换时若未开启全随机源端口映射，高并发短连接更容易撞端口丢包。",
+			KernelEvidence: "iptables-save -t nat 中 cali-nat-outgoing MASQUERADE 规则缺少 --random-fully 参数",
+			Remediation:    "确认内核与 iptables 支持 --random-fully，并检查 Calico FelixConfiguration 未关闭该能力。",
 		})
 	}
 
-	// Sysctl findings
+	// 3. Routing / Forwarding Sysctl findings (translated into network terminology)
 	for _, sc := range sysctls {
+		cat := "routing"
+		if sc.Category == "neighbor" {
+			cat = "l2"
+		} else if sc.Category == "conntrack" {
+			cat = "nat"
+		}
 		switch sc.Status {
 		case "critical":
 			hasCritical = true
 			score -= 25
 			findings = append(findings, model.AuditFinding{
-				ID:          nodeName + "-" + sc.Key,
-				NodeName:    nodeName,
-				Severity:    "critical",
-				Category:    "sysctl",
-				Title:       fmt.Sprintf("高危内核参数 %s=%s（期望 %s）", sc.Key, sc.Value, sc.Expected),
-				Detail:      sc.Explanation,
-				Remediation: sc.Remediation,
+				ID:             nodeName + "-" + sc.Key,
+				NodeName:       nodeName,
+				Severity:       "critical",
+				Category:       cat,
+				Title:          friendlySysctlTitle(sc),
+				Detail:         sc.Explanation,
+				KernelEvidence: fmt.Sprintf("sysctl %s = %s (期望 %s)", sc.Key, sc.Value, sc.Expected),
+				Remediation:    sc.Remediation,
 			})
 		case "warn":
 			hasWarn = true
 			score -= 8
 			findings = append(findings, model.AuditFinding{
-				ID:          nodeName + "-" + sc.Key,
-				NodeName:    nodeName,
-				Severity:    "warning",
-				Category:    "sysctl",
-				Title:       fmt.Sprintf("内核参数风险 %s=%s（期望 %s）", sc.Key, sc.Value, sc.Expected),
-				Detail:      sc.Explanation,
-				Remediation: sc.Remediation,
+				ID:             nodeName + "-" + sc.Key,
+				NodeName:       nodeName,
+				Severity:       "warning",
+				Category:       cat,
+				Title:          friendlySysctlTitle(sc),
+				Detail:         sc.Explanation,
+				KernelEvidence: fmt.Sprintf("sysctl %s = %s (期望 %s)", sc.Key, sc.Value, sc.Expected),
+				Remediation:    sc.Remediation,
 			})
 		}
 	}
 
-	// MTU findings
+	// 4. MTU findings
 	if mtu.Status == "critical" {
 		hasCritical = true
 		score -= 25
 		findings = append(findings, model.AuditFinding{
-			ID:          nodeName + "-mtu-mismatch",
-			NodeName:    nodeName,
-			Severity:    "critical",
-			Category:    "mtu",
-			Title:       "宿主机/隧道/Pod 多层 MTU 不匹配（存在大包黑洞风险）",
-			Detail:      mtu.Detail,
-			Remediation: "核查 Calico Installation/FelixConfiguration 的 vethMTU 配置，确保 IPIP ≤ NIC-20、VXLAN ≤ NIC-50，并滚动重建 MTU 异常的 Pod。",
+			ID:             nodeName + "-mtu-mismatch",
+			NodeName:       nodeName,
+			Severity:       "critical",
+			Category:       "mtu",
+			Title:          "物理网卡 / 隧道接口 / 容器 veth 三层 MTU 不匹配（大包黑洞风险）",
+			Detail:         mtu.Detail,
+			KernelEvidence: fmt.Sprintf("NIC %s=%dB · Tunnel %s=%dB · cali* veth(%d)=%d..%dB", mtu.PrimaryNIC, mtu.PrimaryMTU, mtu.TunnelIface, mtu.TunnelMTU, mtu.SampledVethCount, mtu.MinVethMTU, mtu.MaxVethMTU),
+			Remediation:    "核查 Calico Installation/FelixConfiguration 的 vethMTU 配置，确保 IPIP ≤ 物理MTU-20、VXLAN ≤ 物理MTU-50，并滚动重建 MTU 异常的 Pod。",
 		})
 	} else if mtu.Status == "warn" {
 		hasWarn = true
 		score -= 6
 		findings = append(findings, model.AuditFinding{
-			ID:          nodeName + "-mtu-drift",
-			NodeName:    nodeName,
-			Severity:    "warning",
-			Category:    "mtu",
-			Title:       "节点内 Pod veth MTU 存在新旧不一致",
-			Detail:      mtu.Detail,
-			Remediation: "建议在维护窗口重建 MTU 偏大的旧 Pod 以统一路径 MTU。",
+			ID:             nodeName + "-mtu-drift",
+			NodeName:       nodeName,
+			Severity:       "warning",
+			Category:       "mtu",
+			Title:          "节点内新旧 Pod 虚拟网卡 MTU 不统一",
+			Detail:         mtu.Detail,
+			KernelEvidence: fmt.Sprintf("NIC %s=%dB · cali* veth(%d)=%d..%dB", mtu.PrimaryNIC, mtu.PrimaryMTU, mtu.SampledVethCount, mtu.MinVethMTU, mtu.MaxVethMTU),
+			Remediation:    "建议在维护窗口重建 MTU 偏大的旧 Pod 以统一路径 MTU。",
 		})
 	}
 
@@ -557,6 +762,23 @@ func evaluateKernelAuditFindings(
 		status = "warning"
 	}
 	return findings, score, status
+}
+
+func friendlySysctlTitle(sc model.SysctlCheck) string {
+	switch sc.Key {
+	case "net.ipv4.ip_forward":
+		return fmt.Sprintf("三层 IP 路由转发开关未开启 (%s=%s)", sc.Key, sc.Value)
+	case "net.ipv4.conf.all.rp_filter", "net.ipv4.conf.default.rp_filter":
+		return fmt.Sprintf("反向路径校验 (rp_filter=%s) 处于严格模式，多网卡/非对称路由易静默丢包", sc.Value)
+	case "net.ipv4.tcp_tw_recycle":
+		return fmt.Sprintf("高危 NAT 冲突项：tcp_tw_recycle=%s 已开启（NAT 后大量连接超时）", sc.Value)
+	case "net.ipv4.ip_local_port_range":
+		return fmt.Sprintf("宿主机出向 NAT 临时端口池偏窄 (%s)", sc.Value)
+	case "net.ipv4.neigh.default.gc_thresh3":
+		return fmt.Sprintf("二层 ARP 邻居表上限偏低 (gc_thresh3=%s)", sc.Value)
+	default:
+		return fmt.Sprintf("网络内核参数异常 %s=%s（期望 %s）", sc.Key, sc.Value, sc.Expected)
+	}
 }
 
 func readProcStr(path string) (string, bool) {

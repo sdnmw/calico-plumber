@@ -93,7 +93,7 @@ export default function App() {
     { id: 'ipam', label: 'IPAM 与搜索', icon: Grid },
     { id: 'traceflow', label: 'TraceFlow', icon: Route },
     { id: 'troubleshoot', label: 'Pod 排障', icon: Wrench },
-    { id: 'audit', label: '内核与路由审计', icon: ShieldCheck },
+    { id: 'audit', label: '网络体检与审计', icon: ShieldCheck },
     { id: 'health', label: '全局健康', icon: HeartPulse },
   ];
 
