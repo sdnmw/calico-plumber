@@ -31,7 +31,9 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
   const [nodes, setNodes] = useState<{ name: string; ip: string }[]>([]);
   const [history, setHistory] = useState<TraceFlowResult[]>([]);
   const [viewMode, setViewMode] = useState<'layered' | 'linear'>('layered');
-  const [animateFlow, setAnimateFlow] = useState(true);
+  const [playTrigger, setPlayTrigger] = useState(0);
+  const [stopTrigger, setStopTrigger] = useState(0);
+  const [isPlayingFlow, setIsPlayingFlow] = useState(false);
 
   const [srcNs, setSrcNs] = useState('');
   const [srcPod, setSrcPod] = useState('');
@@ -100,6 +102,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
     try {
       const res = await api.runTraceFlow(req);
       setResult(res);
+      setPlayTrigger((n) => n + 1);
       setHistory((prev) => [res, ...prev.filter((h) => h.id !== res.id)].slice(0, 20));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -259,6 +262,8 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
             onClick={() => {
               setResult(null);
               setSelectedHop(null);
+              setPlayTrigger(0);
+              setIsPlayingFlow(false);
             }}
             className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-600 dark:text-slate-300 hover:border-blue-400 transition"
           >
@@ -561,6 +566,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                     onClick={() => {
                       setResult(h);
                       setSelectedHop(null);
+                      setPlayTrigger(0);
                     }}
                     className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition flex flex-wrap items-center justify-between gap-2"
                   >
@@ -648,14 +654,20 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
               <div className="flex items-center gap-2 shrink-0">
                 {viewMode === 'layered' && (
                   <button
-                    onClick={() => setAnimateFlow((v) => !v)}
-                    className={`px-2 py-1 rounded-lg border text-[11px] font-medium transition ${
-                      animateFlow
-                        ? 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                    onClick={() => {
+                      if (isPlayingFlow) {
+                        setStopTrigger((n) => n + 1);
+                      } else {
+                        setPlayTrigger((n) => n + 1);
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition ${
+                      isPlayingFlow
+                        ? 'border-sky-400 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-300'
+                        : 'border-slate-200 bg-white hover:border-blue-400 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
                     }`}
                   >
-                    {animateFlow ? '● 报文流向动效' : '○ 动效已暂停'}
+                    {isPlayingFlow ? '■ 停止演示' : '▶ 逐跳演示'}
                   </button>
                 )}
                 <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px]">
@@ -690,7 +702,9 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                   nodes={nodeDetails}
                   selectedHop={selectedHop}
                   onSelectHop={setSelectedHop}
-                  animate={animateFlow}
+                  playTrigger={playTrigger}
+                  stopTrigger={stopTrigger}
+                  onPlayingChange={setIsPlayingFlow}
                 />
               ) : (
                 <div className="overflow-x-auto">
@@ -847,6 +861,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                     onClick={() => {
                       setResult(h);
                       setSelectedHop(null);
+                      setPlayTrigger(0);
                     }}
                     className={`w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition ${
                       result?.id === h.id ? 'bg-blue-50/60 dark:bg-blue-950/30' : ''
