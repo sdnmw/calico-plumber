@@ -16,8 +16,9 @@ import {
   Shuffle,
 } from 'lucide-react';
 import { api } from '../api/client';
-import type { PodBrief, ServiceBrief, TraceFlowRequest, TraceFlowResult, TraceHop } from '../api/types';
+import type { NodeNetworkStatus, PodBrief, ServiceBrief, TraceFlowRequest, TraceFlowResult, TraceHop } from '../api/types';
 import { EncapBadge, SectionCard, StatusPill } from '../components/common/Badges';
+import { LayeredTraceTopology } from '../components/traceflow/LayeredTraceTopology';
 
 interface TraceFlowPageProps {
   initialReq?: Partial<TraceFlowRequest> | null;
@@ -26,8 +27,10 @@ interface TraceFlowPageProps {
 export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
   const [pods, setPods] = useState<PodBrief[]>([]);
   const [services, setServices] = useState<ServiceBrief[]>([]);
+  const [nodeDetails, setNodeDetails] = useState<NodeNetworkStatus[]>([]);
   const [nodes, setNodes] = useState<{ name: string; ip: string }[]>([]);
   const [history, setHistory] = useState<TraceFlowResult[]>([]);
+  const [viewMode, setViewMode] = useState<'layered' | 'linear'>('layered');
 
   const [srcNs, setSrcNs] = useState('');
   const [srcPod, setSrcPod] = useState('');
@@ -49,6 +52,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
         const runningPods = podList.filter((p) => p.phase === 'Running' && p.ip && !p.hostNetwork);
         setPods(runningPods);
         setServices(svcList);
+        setNodeDetails(ov.nodes || []);
         setNodes((ov.nodes || []).map((n) => ({ name: n.name, ip: n.internalIP })));
         setHistory(hist);
         if (hist.length > 0 && !result) {
@@ -429,7 +433,11 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                   <StatusPill status={result.status} />
                   <EncapBadge mode={result.encapMode} />
                   <span className="text-xs font-mono px-2 py-0.5 rounded bg-white/80 dark:bg-slate-900/80 border border-slate-200/70 dark:border-slate-700">
-                    {result.crossNode ? '跨节点 (Cross-Node)' : '同节点 (Same-Node)'}
+                    {result.destination.kind === 'External' || result.forwardHops?.some((h) => h.lane === 'external')
+                      ? '集群外部 (External)'
+                      : result.crossNode
+                        ? '跨节点 (Cross-Node)'
+                        : '同节点 (Same-Node)'}
                   </span>
                   <span className="text-xs font-mono text-slate-600 dark:text-slate-300">
                     RTT: <b>{result.totalLatencyMs} ms</b>
@@ -457,51 +465,86 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
             </div>
           </div>
 
-          {/* Multi-Lane Horizontal Swimlane Dataplane Pipeline */}
+          {/* Layered Node-Stack Dataplane Topology (Default) / Optional Linear Pipeline */}
           <SectionCard
-            title="数据面逐跳路径视图（TraceFlow Pipeline）"
-            subtitle="点击任意跳点卡片查看实时捕获报文摘要、外层隧道头、路由表项或 NetworkPolicy 命中详情"
-          >
-            <div className="p-5 overflow-x-auto">
-              <div className="flex items-stretch gap-4 min-w-max">
-                {lanes.map((lane, lIdx) => (
-                  <React.Fragment key={lane.key}>
-                    <div
-                      className={`rounded-xl border p-3.5 flex flex-col gap-3 ${
-                        lane.key === 'fabric'
-                          ? 'bg-violet-50/40 dark:bg-violet-950/20 border-violet-200/80 dark:border-violet-900/60 border-dashed'
-                          : 'bg-slate-50/70 dark:bg-slate-950/50 border-slate-200/90 dark:border-slate-800'
-                      }`}
-                    >
-                      <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                        {lane.key === 'fabric' ? <Globe className="w-3.5 h-3.5 text-violet-500" /> : <Cpu className="w-3.5 h-3.5 text-blue-500" />}
-                        {lane.title}
-                      </div>
-
-                      <div className="flex items-center gap-2.5">
-                        {lane.hops.map((hop, hIdx) => (
-                          <React.Fragment key={hop.index}>
-                            <HopCard
-                              hop={hop}
-                              selected={selectedHop?.index === hop.index}
-                              onClick={() => setSelectedHop(hop)}
-                            />
-                            {hIdx < lane.hops.length - 1 && (
-                              <ArrowRight className="w-4 h-4 text-slate-400 shrink-0" />
-                            )}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    </div>
-
-                    {lIdx < lanes.length - 1 && (
-                      <div className="flex items-center">
-                        <ArrowRight className="w-5 h-5 text-blue-500 shrink-0" />
-                      </div>
-                    )}
-                  </React.Fragment>
-                ))}
+            title="数据面分层拓扑路径视图（Node / OS / Kernel / vNIC / Container）"
+            subtitle="按真实宿主机分层结构（容器 → OS 用户态/内核态 → 虚拟网卡/隧道 → 物理网卡 → Node 底层）还原报文流向，点击任意跳点查看实时抓包与规则明细"
+            action={
+              <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px] shrink-0">
+                <button
+                  onClick={() => setViewMode('layered')}
+                  className={`px-2.5 py-1 rounded-md font-medium transition ${
+                    viewMode === 'layered'
+                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  分层拓扑视图
+                </button>
+                <button
+                  onClick={() => setViewMode('linear')}
+                  className={`px-2.5 py-1 rounded-md font-medium transition ${
+                    viewMode === 'linear'
+                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  线性流水线
+                </button>
               </div>
+            }
+          >
+            <div className="p-4 sm:p-5">
+              {viewMode === 'layered' ? (
+                <LayeredTraceTopology
+                  result={result}
+                  nodes={nodeDetails}
+                  selectedHop={selectedHop}
+                  onSelectHop={setSelectedHop}
+                />
+              ) : (
+                <div className="overflow-x-auto">
+                  <div className="flex items-stretch gap-4 min-w-max">
+                    {lanes.map((lane, lIdx) => (
+                      <React.Fragment key={lane.key}>
+                        <div
+                          className={`rounded-xl border p-3.5 flex flex-col gap-3 ${
+                            lane.key === 'fabric'
+                              ? 'bg-violet-50/40 dark:bg-violet-950/20 border-violet-200/80 dark:border-violet-900/60 border-dashed'
+                              : 'bg-slate-50/70 dark:bg-slate-950/50 border-slate-200/90 dark:border-slate-800'
+                          }`}
+                        >
+                          <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                            {lane.key === 'fabric' ? <Globe className="w-3.5 h-3.5 text-violet-500" /> : <Cpu className="w-3.5 h-3.5 text-blue-500" />}
+                            {lane.title}
+                          </div>
+
+                          <div className="flex items-center gap-2.5">
+                            {lane.hops.map((hop, hIdx) => (
+                              <React.Fragment key={hop.index}>
+                                <HopCard
+                                  hop={hop}
+                                  selected={selectedHop?.index === hop.index}
+                                  onClick={() => setSelectedHop(hop)}
+                                />
+                                {hIdx < lane.hops.length - 1 && (
+                                  <ArrowRight className="w-4 h-4 text-slate-400 shrink-0" />
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        </div>
+
+                        {lIdx < lanes.length - 1 && (
+                          <div className="flex items-center">
+                            <ArrowRight className="w-5 h-5 text-blue-500 shrink-0" />
+                          </div>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Return Path Observed Strip */}
               {result.returnHops && result.returnHops.length > 0 && (
