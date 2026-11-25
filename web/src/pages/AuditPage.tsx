@@ -316,7 +316,7 @@ export function AuditPage() {
             {kernelReport?.encapMode && <EncapBadge mode={kernelReport.encapMode} />}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            围绕网络模式与 MTU、Calico BGP 邻居与三层路由、二层 MAC/ARP 与 NAT 转发逐层体检；检测到问题后再下钻至 Conntrack 与内核参数证据
+            围绕网络模式与 MTU、Calico BGP 邻居与三层路由、二层 MAC/ARP 与 NAT 转发逐层体检；检测到问题后再按需查看 Conntrack 与内核参数详情
           </p>
         </div>
 
@@ -659,10 +659,10 @@ export function AuditPage() {
             </div>
           </SectionCard>
 
-          {/* 2. Detected Issues with Progressive Drilldown to Conntrack / Sysctl */}
+          {/* 2. Detected Issues with Progressive Kernel Evidence Inspection */}
           <SectionCard
-            title="网络异常体检与底层根因下钻"
-            subtitle="先用路由 / NAT / MAC / ARP / MTU 网络语言说明业务影响；点击单条记录的「底层内核证据」即可下钻查看 Conntrack 与 Sysctl 细节"
+            title="网络异常体检与根因排查"
+            subtitle="先用路由 / NAT / MAC / ARP / MTU 网络语言说明业务影响；点击单条记录的「查看内核证据」可展开 Conntrack 与 Sysctl 细节"
             action={
               kernelReport.findings.length === 0 ? (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -705,7 +705,7 @@ export function AuditPage() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 text-slate-600 dark:text-slate-300 hover:text-blue-700 dark:hover:text-blue-300 transition"
                           >
                             <Terminal className="w-3 h-3" />
-                            <span>{evidenceOpen ? '收起底层内核证据' : '下钻底层内核证据 (Conntrack / Sysctl)'}</span>
+                            <span>{evidenceOpen ? '收起内核证据' : '查看内核证据 (Conntrack / Sysctl)'}</span>
                             {evidenceOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                           </button>
                         )}

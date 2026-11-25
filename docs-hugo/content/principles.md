@@ -1,7 +1,7 @@
 ---
 title: "核心实现原理"
 badge: "ARCHITECTURE"
-description: "拆解 calico-plumber 六大核心模块在 Linux 内核、Calico 控制面/数据面与 Kubernetes API 层的底层工作机制。"
+description: "拆解 calico-plumber 核心模块在 Linux 内核、Calico 控制面/数据面、二层 ARP、三层路由与 Kubernetes API 层的底层工作机制。"
 ---
 
 ## 1. Calico 网络模式与 kube-proxy 自动感知
@@ -63,11 +63,13 @@ Calico IPAM 以固定大小 CIDR Block（默认 `/26` = 64 IP）分配给节点�
    - 跨节点场景下，目标节点 Agent 提前 120ms 在目标物理网卡、隧道口、`dst_cali_veth`、`dst_pod_eth0` 上武装监听；
    - 监听解析器原生兼容 **L2 以太网帧** 与 **L3 纯 IP 帧（`tunl0`）**，并在物理网卡层自动剥离 **IPIP（IP Protocol 4）** 与 **VXLAN（UDP/4789 + VNI）** 外层封装头，同时记录外层隧道信息展示在前端。
 3. **注入真实探测报文并同步采集控制面上下文**：源 Agent 切入源 Pod Netns 发起真实连接/探针，并同步提取宿主机路由表项、`kube-proxy` 命中的 `KUBE-SVC/SEP` 或 IPVS 规则以及 `cali-fw`/`cali-tw` 策略链。
-4. **精准丢包归因**：
-   - 若正向报文在 `src_cali_veth` 可见但未离开 `src_phy_nic` → 定位为 **源节点 Egress NetworkPolicy 拦截或缺少路由**；
+4. **精准丢包归因与 SNAT / hostNetwork 识别**：
+   - 若正向报文在 `src_cali_veth` 可见但未离开 `src_phy_nic` → 定位为 **源节点 Egress NetworkPolicy 拦截或缺少路由**，后续不可达跳点统一标记为 `SKIPPED`；
    - 若已离开 `src_phy_nic` 但未到达 `dst_phy_nic` → 定位为 **底层物理网络 / 防火墙 / 隧道端口（IP Proto 4 或 UDP 4789）阻断**；
    - 若已到达 `dst_phy_nic` 但未进入 `dst_cali_veth` → 定位为 **目标节点 Ingress NetworkPolicy 拦截或解封装/本地路由异常**；
-   - 若收到 `TCP RST` → 明确区分网络层全通、仅目标端口未监听。
+   - 若收到 `TCP RST` → 明确区分网络层全通、仅目标端口未监听；
+   - 针对访问集群外部 IP 时 Calico `cali-nat-outgoing` 执行 `MASQUERADE --random-fully` 导致的源端口/ICMP ID 随机改写，以及访问 `hostNetwork` Service（如 `kubernetes:443` 走 `lo` 环回）和多副本 Service 场景，解析器自动按宿主机 IP + 目的地址/端口进行 SNAT 关联与后端匹配，杜绝假阳性 `DROPPED`。
+5. **垂直分层宿主机拓扑与逐跳回放**：前端按真实宿主机软件栈结构绘制双节点拓扑（底层 `Node` → `物理网卡层` → `OS 内核态（虚拟交换/隧道、路由表、策略、cali* veth）` + `OS 用户态（calico-node / kube-proxy）` → `容器层（Pod eth0）`），支持默认静态浏览历史记录，执行新追踪或点击 **逐跳演示** 时按实际报文流向（源节点下行 → 物理网络 → 目标节点上行）逐步动画演示。
 
 ---
 
@@ -116,3 +118,36 @@ Server 侧维护内存时间窗口环形缓冲（保留最近 1 小时数据，�
 - 将客户端临时端口（`>= 32768`）到服务端监听端口规范化为统一流向；
 - 跨节点流会在源/目的两节点同时被采集，Server 按标准五元组去重避免流量翻倍，并合并 Service 身份与 RTT 采样；
 - 支持按 `Namespace`、`Workload`、`Pod`、`Node` 四种粒度实时聚合成有向图，边宽按对数映射吞吐量，边色按延迟/重传/RST 阈值自动标记健康、告警或严重异常。
+
+---
+
+## 8. 网络体检与路由一致性审计原理
+
+**网络体检与审计**模块遵循“先看网络平面（网络模式与 MTU、BGP 邻居与路由、二层 MAC/ARP、NAT 转发），发现异常后再关联内核态证据”的设计原则：
+
+1. **Calico 网络模式与 MTU 封装校验 + Path MTU DF 探测**：
+   - 结合 `Installation` / `IPPool` 封装模式与各节点物理网卡实际 MTU，自动计算封装开销（BGP 直连 `0B`、IPIP `20B`、VXLAN `50B`），核查全集群节点的 **物理网卡 ↔ 隧道接口 ↔ 全部 `cali*` veth** 三层 MTU 是否一致，并检测跨节点 MTU 漂移；
+   - **Path MTU / DF 探测**（`POST /api/v1/diag/pmtud`）：切入源 Pod Netns，在原始 ICMP 套接字上设置 `IP_MTU_DISCOVER = IP_PMTUDISC_DO`（置位 IPv4 DF 禁止分片标志），按 `64B` 连通性基线 + 目标上限 + 常见隧道边界（`1480 / 1450 / 1440 / 1400 / 1280`）进行二分查找，精准定位“小包通、大包卡死”的 MTU 黑洞。
+2. **二层 MAC、默认网关 ARP 与 Calico Proxy ARP 采集**：
+   - Agent 通过 Netlink `LinkList` / `RouteList` / `NeighList` 实时获取主物理网卡 MAC、默认网关 IP 及其 ARP 状态（`REACHABLE / STALE / FAILED / INCOMPLETE`）、IPv4 邻居缓存表与容量水位（`gc_thresh3`）；
+   - 遍历本节点所有 `cali*` 虚拟网卡的 `/proc/sys/net/ipv4/conf/<cali*>/proxy_arp`，确认 Calico 代答容器内虚拟网关 `169.254.1.1` ARP 请求（返回虚拟 MAC `ee:ee:ee:ee:ee:ee`）的开关完好；
+   - Server 侧自动将 ARP 邻居 IP 与 K8s Node、Pod 元数据关联，标记 `默认网关`、`集群节点`、`Pod veth` 角色并高亮任意 `FAILED / INCOMPLETE` 故障项。
+3. **Expected vs Actual 三层路由一致性审计与 BGP 抖动时间线**：
+   - Server 根据 `IPAMBlock` 节点亲和性与集群内运行中非 `hostNetwork` Pod 推导出每台节点的 **期望路由表**，与各节点 Netlink 采集的 **实际 IPv4 主路由表** 逐项比对，精准识别 6 类漂移：
+     - `missing_block`：缺失通往对端节点 `IPAMBlock` 的跨节点路由；
+     - `missing_blackhole` / `unexpected_blackhole`：本节点缺少防环路聚合 `blackhole` 路由或残留失效 `blackhole`；
+     - `missing_pod` / `ghost_pod_route`：本地运行中 Pod 缺少 `/32` 主机路由，或存在无对应活跃 Pod 的残留 `cali*` `/32` 幽灵路由；
+     - `asymmetric_path`：任意两节点 A→B 与 B→A 去回程封装模式不一致（如一侧直连、另一侧走隧道）。
+   - 同时在 `flowstore` 中持续比对各节点上报的 BIRD BGP Peer 状态，自动记录 `Established ↔ Active/Idle/Connect` 翻转时间线。
+4. **NAT 转发与底层内核证据关联**：
+   - 采集 `cali-nat-outgoing` 是否开启 `--random-fully`、`/proc/net/stat/nf_conntrack` 多核累计 `insert_failed / drop / early_drop / invalid` 以及关键 `sysctl`（`ip_forward`、`rp_filter`、`tcp_tw_recycle`、`ip_local_port_range`、`gc_thresh3` 等）；
+   - 告警以路由 / NAT / ARP / MTU 网络语言呈现业务影响，并附带可按需展开的底层内核参数与 Conntrack 原始证据。
+
+---
+
+## 9. 一键诊断包离线归档机制
+
+针对生产故障需要跨团队流转或事后复盘的场景，Server 提供 `GET /api/v1/bundle/export`（支持 `?traceId=<id>&pod=<ns>/<name>`）：
+
+- **内存并发采集、零临时文件落盘**：并发汇总当前集群架构总览、网络模式/L2/MTU/NAT 体检报告、Expected vs Actual 路由与 BGP 审计报告、IPAM 快照、全局健康巡检报告、TraceFlow 历史（以及指定的聚焦 TraceFlow / Pod Netns 详情）；
+- **标准 `.zip` 离线包**：使用 Go 标准库 `archive/zip` 与 `html/template` 在内存中直接生成 `calico-plumber-diag-<timestamp>.zip`，内含零外部 CDN 依赖的独立离线报告 `report.html`（支持浏览器直接打开或打印 PDF）、`README.txt` 及 `01..07-*.json` 完整原始证据。

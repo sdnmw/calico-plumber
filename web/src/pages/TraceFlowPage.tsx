@@ -508,7 +508,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
             <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
               <button
                 onClick={runPresetPodToPod}
-                disabled={running}
+                disabled={running || pods.length === 0}
                 className="text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 hover:shadow-sm bg-slate-50/70 dark:bg-slate-950/50 transition disabled:opacity-50 group"
               >
                 <div className="flex items-center justify-between gap-2">
@@ -523,7 +523,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
               </button>
               <button
                 onClick={runPresetPodToService}
-                disabled={running}
+                disabled={running || pods.length === 0}
                 className="text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 hover:shadow-sm bg-slate-50/70 dark:bg-slate-950/50 transition disabled:opacity-50 group"
               >
                 <div className="flex items-center justify-between gap-2">
@@ -538,7 +538,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
               </button>
               <button
                 onClick={runPresetPodToNode}
-                disabled={running}
+                disabled={running || pods.length === 0}
                 className="text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 hover:shadow-sm bg-slate-50/70 dark:bg-slate-950/50 transition disabled:opacity-50 group"
               >
                 <div className="flex items-center justify-between gap-2">

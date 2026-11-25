@@ -40,7 +40,9 @@
 - **自适应双引擎流量遥测**：
   - **模式一 — `eBPF`**：在支持 BTF 的现代内核（Linux 5.8+ 或 RHEL / Rocky 8/9 等）上自动加载 CO-RE eBPF 探针，零侵入获取五元组流量、吞吐速率、内核 `srtt_us` 连接延迟及 TCP 重传 / RST 统计。
   - **模式二 — `Legacy`**：在不具备 BTF/eBPF 条件的老内核节点上自动平滑降级为 **Netlink Conntrack + Pod Netns `INET_DIAG` (`tcp_info`)** 混合采集，同一集群内异构内核节点无缝混部。
-- **零侵入单 Pod 深度排障**：Node Agent 通过宿主机进入目标 Pod 的 Network Namespace，**无需业务容器预装 `tcpdump`、`curl`、`nc` 或 `sh`**（完美兼容 `distroless` / `scratch` 镜像），即可执行实时抓包（支持 `.pcap` 下载）、TCP 三次握手时序检测、HTTP/HTTPS 瀑布流探测与多跳 TraceFlow。
+- **零侵入单 Pod 深度排障与分层 TraceFlow**：Node Agent 通过宿主机进入目标 Pod 的 Network Namespace，**无需业务容器预装 `tcpdump`、`curl`、`nc` 或 `sh`**（完美兼容 `distroless` / `scratch` 镜像），支持实时抓包（`.pcap` 下载）、TCP 三次握手时序检测、HTTP/HTTPS 瀑布流探测，以及按「Node → 物理网卡 → OS 内核/用户态 → 虚拟交换/隧道 → 容器」垂直分层绘制并支持逐跳回放的多跳 TraceFlow。
+- **网络体检与一致性审计**：从 Calico 网络模式与 MTU 封装链路、Path MTU / DF 大包黑洞探测、BIRD BGP 邻居与 Expected vs Actual 三层路由一致性比对、二层 MAC/网关 ARP/Proxy ARP 邻居表，到 NAT 转发异常与底层 Conntrack / Sysctl 证据逐层排查。
+- **一键导出故障现场诊断包**：顶部导航栏、审计页与 TraceFlow 结论栏支持一键导出 `.zip` 诊断包（含零外链离线 `report.html` 与全量结构化 JSON 现场证据），方便跨团队工单流转与复盘。
 - **全维度 IPAM & 资产检索**：深度解析 `IPPool`、`IPAMBlock`、`BlockAffinity` CRD，提供节点级 IP 位图热力图（活跃 Pod / 隧道 IP / 跨节点借用 / 孤儿残留 / 空闲）与 `⌘K` 全局检索。
 - **全局网络健康巡检**：内置轻量 Probe DaemonSet，一键执行 Pod-Pod N×N 跨节点延迟矩阵、Pod-Node、Pod-SVC & CoreDNS 及全集群 Service ClusterIP vs 后端 Pod 穿透体检。
 - **内置 Hugo 技术文档**：Web 控制台右上角一键直达内置静态文档站（`/docs/`），涵盖实现原理、网络/性能影响评估与常见实战排障教程。
