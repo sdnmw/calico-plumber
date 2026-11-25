@@ -578,3 +578,198 @@ export interface GlobalHealthReport {
     checks: { category: string; name: string; status: 'pass' | 'warn' | 'fail'; detail: string }[];
   };
 }
+
+// ===== Kernel / Conntrack / NAT / MTU Audit =====
+
+export interface ConntrackStats {
+  count: number;
+  max: number;
+  buckets: number;
+  usagePct: number;
+  searched: number;
+  found: number;
+  new: number;
+  invalid: number;
+  ignore: number;
+  insert: number;
+  insertFailed: number;
+  drop: number;
+  earlyDrop: number;
+  icmpError: number;
+  searchRestart: number;
+  natOutgoingEnabled: boolean;
+  snatRandomFully: boolean;
+  acctEnabled: boolean;
+}
+
+export interface SysctlCheck {
+  key: string;
+  value: string;
+  expected: string;
+  category: string;
+  status: 'pass' | 'warn' | 'critical' | 'info';
+  explanation: string;
+  remediation?: string;
+}
+
+export interface MTUCheck {
+  primaryNIC: string;
+  primaryMTU: number;
+  tunnelIface?: string;
+  tunnelType?: string;
+  tunnelMTU?: number;
+  expectedTunnelMTU?: number;
+  sampledVethCount: number;
+  minVethMTU?: number;
+  maxVethMTU?: number;
+  mismatchedVeths?: string[];
+  status: 'pass' | 'warn' | 'critical';
+  detail: string;
+}
+
+export interface AuditFinding {
+  id: string;
+  nodeName?: string;
+  severity: 'critical' | 'warning' | 'info';
+  category: string;
+  title: string;
+  detail: string;
+  remediation?: string;
+}
+
+export interface NodeKernelAudit {
+  nodeName: string;
+  internalIP?: string;
+  kernelVersion?: string;
+  score: number;
+  status: 'healthy' | 'warning' | 'critical' | 'unreachable';
+  error?: string;
+  conntrack: ConntrackStats;
+  sysctls: SysctlCheck[];
+  mtu: MTUCheck;
+  findings?: AuditFinding[];
+  collectedAt: string;
+}
+
+export interface ClusterKernelAuditReport {
+  generatedAt: string;
+  overallStatus: 'healthy' | 'warning' | 'critical';
+  averageScore: number;
+  encapMode: string;
+  criticalCount: number;
+  warningCount: number;
+  nodes: NodeKernelAudit[];
+  findings: AuditFinding[];
+}
+
+export interface PMTUDProbeRequest {
+  srcNamespace: string;
+  srcPod: string;
+  targetIP: string;
+  maxMTU?: number;
+  timeoutMs?: number;
+}
+
+export interface PMTUDAttempt {
+  packetSize: number;
+  success: boolean;
+  result: 'ECHO_REPLY' | 'FRAG_NEEDED' | 'TIMEOUT' | 'ERROR';
+  latencyMs: number;
+  detail?: string;
+}
+
+export interface PMTUDProbeResult {
+  srcPod: string;
+  srcIP: string;
+  targetIP: string;
+  podMTU: number;
+  discoveredMTU: number;
+  blackhole: boolean;
+  status: 'pass' | 'warn' | 'critical';
+  diagnosis: string;
+  attempts: PMTUDAttempt[];
+}
+
+// ===== Route & BGP Consistency Audit =====
+
+export interface HostRouteEntry {
+  dst: string;
+  gateway?: string;
+  dev?: string;
+  protocol: string;
+  type: string;
+  scope?: string;
+  metric?: number;
+  flags?: string;
+}
+
+export interface RouteDriftItem {
+  nodeName: string;
+  kind:
+    | 'missing_block'
+    | 'missing_pod'
+    | 'ghost_pod_route'
+    | 'unexpected_blackhole'
+    | 'missing_blackhole'
+    | 'encap_mismatch'
+    | 'asymmetric_path';
+  severity: 'critical' | 'warning' | 'info';
+  cidr: string;
+  expected: string;
+  actual: string;
+  detail: string;
+  remediation?: string;
+}
+
+export interface BGPEvent {
+  timestamp: string;
+  nodeName: string;
+  peerName: string;
+  peerIP: string;
+  prevState: string;
+  newState: string;
+  severity: 'critical' | 'warning' | 'info';
+  message: string;
+}
+
+export interface NodeRouteAudit {
+  nodeName: string;
+  internalIP: string;
+  status: 'healthy' | 'warning' | 'critical' | 'unreachable';
+  error?: string;
+  totalRoutes: number;
+  birdRoutes: number;
+  localPodRoutes: number;
+  blackholeRoutes: number;
+  expectedBlocks: number;
+  expectedLocalPods: number;
+  driftCount: number;
+  bgpPeersUp: number;
+  bgpPeersTotal: number;
+  routes: HostRouteEntry[];
+  drifts?: RouteDriftItem[];
+}
+
+export interface AsymmetricPair {
+  nodeA: string;
+  nodeB: string;
+  aToBCIDR: string;
+  aToBPath: string;
+  bToACIDR: string;
+  bToAPath: string;
+  detail: string;
+}
+
+export interface ClusterRouteAuditReport {
+  generatedAt: string;
+  overallStatus: 'healthy' | 'warning' | 'critical';
+  encapMode: string;
+  totalDrifts: number;
+  missingCount: number;
+  ghostPodCount: number;
+  asymmetricCount: number;
+  nodes: NodeRouteAudit[];
+  drifts: RouteDriftItem[];
+  asymmetricPairs?: AsymmetricPair[];
+  bgpEvents?: BGPEvent[];
+}

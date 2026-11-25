@@ -14,6 +14,7 @@ import {
   XCircle,
   AlertTriangle,
   Shuffle,
+  Download,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { NodeNetworkStatus, PodBrief, ServiceBrief, TraceFlowRequest, TraceFlowResult, TraceHop } from '../api/types';
@@ -635,14 +636,24 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
               </div>
             </div>
 
-            <div className="text-right font-mono text-[11px] text-slate-500 space-y-0.5">
-              <div>Trace ID: {result.id}</div>
-              <div>{result.traceSignature}</div>
-              {result.resolvedBackend && (
-                <div className="text-teal-700 dark:text-teal-300 font-semibold">
-                  DNAT → {result.resolvedBackend.displayName} ({result.resolvedBackend.ip})
-                </div>
-              )}
+            <div className="flex flex-col items-end gap-1.5 font-mono text-[11px] text-slate-500">
+              <div className="text-right space-y-0.5">
+                <div>Trace ID: {result.id}</div>
+                <div>{result.traceSignature}</div>
+                {result.resolvedBackend && (
+                  <div className="text-teal-700 dark:text-teal-300 font-semibold">
+                    DNAT → {result.resolvedBackend.displayName} ({result.resolvedBackend.ip})
+                  </div>
+                )}
+              </div>
+              <a
+                href={api.getBundleExportUrl({ traceId: result.id })}
+                download
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-sans text-[11px] font-semibold bg-white/90 dark:bg-slate-900/90 hover:bg-blue-50 dark:hover:bg-blue-950/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-blue-700 dark:hover:text-blue-300 transition"
+              >
+                <Download className="w-3 h-3" />
+                <span>导出本次诊断包</span>
+              </a>
             </div>
           </div>
 

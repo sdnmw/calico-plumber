@@ -1,17 +1,21 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"calico-netdiag/pkg/k8s"
 	"calico-netdiag/pkg/model"
 	"calico-netdiag/pkg/server/agentclient"
+	"calico-netdiag/pkg/server/audit"
+	"calico-netdiag/pkg/server/bundle"
 	"calico-netdiag/pkg/server/flowstore"
 	"calico-netdiag/pkg/server/healthcheck"
 	"calico-netdiag/pkg/server/traceflow"
@@ -27,6 +31,7 @@ type Router struct {
 	agents     *agentclient.Client
 	tracer     *traceflow.Orchestrator
 	health     *healthcheck.Runner
+	auditor    *audit.Auditor
 	staticFS   fs.FS
 	docsFS     fs.FS
 	upgrader   websocket.Upgrader
@@ -50,6 +55,7 @@ func NewRouter(
 		agents:    agents,
 		tracer:    tracer,
 		health:    health,
+		auditor:   audit.NewAuditor(k8sStore, flows, agents),
 		staticFS:  staticFS,
 		docsFS:    docsFS,
 		upgrader: websocket.Upgrader{
@@ -78,10 +84,14 @@ func NewRouter(
 	mux.HandleFunc("/api/v1/traceflow/history", r.handleTraceFlowHistory)
 	mux.HandleFunc("/api/v1/diag/tcp-handshake", r.handleTCPHandshake)
 	mux.HandleFunc("/api/v1/diag/http-probe", r.handleHTTPProbe)
+	mux.HandleFunc("/api/v1/diag/pmtud", r.handlePMTUD)
 	mux.HandleFunc("/api/v1/diag/tcpdump/ws", r.handleTCPDumpWS)
 	mux.HandleFunc("/api/v1/diag/pcap", r.handlePcapDownload)
 	mux.HandleFunc("/api/v1/health", r.handleHealth)
 	mux.HandleFunc("/api/v1/health/run", r.handleHealthRun)
+	mux.HandleFunc("/api/v1/audit/kernel", r.handleKernelAudit)
+	mux.HandleFunc("/api/v1/audit/routes", r.handleRouteAudit)
+	mux.HandleFunc("/api/v1/bundle/export", r.handleBundleExport)
 
 	// Embedded Hugo Documentation Site (/docs/)
 	mux.HandleFunc("/docs", func(w http.ResponseWriter, req *http.Request) {
@@ -110,6 +120,10 @@ func (r *Router) handleAgentReport(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleOverview(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, r.buildOverview())
+}
+
+func (r *Router) buildOverview() model.ClusterNetworkOverview {
 	k8sVer, inst, felix, bgpCfg, rawPeers, kpMode, clusterCIDR, podCnt, svcCnt, nsCnt, polCnt := r.k8sStore.GetClusterMetadata()
 	ipam := r.k8sStore.GetIPAMSnapshot()
 	snaps := r.flows.ListNodeSnapshots()
@@ -270,7 +284,7 @@ func (r *Router) handleOverview(w http.ResponseWriter, _ *http.Request) {
 		BGPPeers:         bgpPeersOut,
 		GlobalTraffic:    r.flows.GlobalTrafficSummary(),
 	}
-	writeJSON(w, http.StatusOK, overview)
+	return overview
 }
 
 func (r *Router) handleNamespaces(w http.ResponseWriter, _ *http.Request) {
@@ -342,10 +356,18 @@ func (r *Router) handleListServices(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handlePodDetail(w http.ResponseWriter, req *http.Request) {
 	ns := req.URL.Query().Get("namespace")
 	name := req.URL.Query().Get("name")
-	pod, brief, ok := r.k8sStore.GetPod(ns, name)
+	detail, ok := r.buildPodDetail(req.Context(), ns, name)
 	if !ok {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("pod %s/%s not found", ns, name)})
 		return
+	}
+	writeJSON(w, http.StatusOK, detail)
+}
+
+func (r *Router) buildPodDetail(ctx context.Context, ns, name string) (*model.PodNetworkDetail, bool) {
+	pod, brief, ok := r.k8sStore.GetPod(ns, name)
+	if !ok {
+		return nil, false
 	}
 
 	svcRefs, pols := r.k8sStore.GetPodServicesAndPolicies(ns, name)
@@ -370,7 +392,7 @@ func (r *Router) handlePodDetail(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if brief.NodeName != "" {
-		dp, err := r.agents.GetPodDataplane(req.Context(), brief.NodeName, string(pod.UID), brief.IP)
+		dp, err := r.agents.GetPodDataplane(ctx, brief.NodeName, string(pod.UID), brief.IP)
 		if err != nil {
 			detail.DataplaneError = err.Error()
 		} else {
@@ -386,7 +408,7 @@ func (r *Router) handlePodDetail(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusOK, detail)
+	return &detail, true
 }
 
 func (r *Router) handleTopology(w http.ResponseWriter, req *http.Request) {
@@ -551,6 +573,125 @@ func (r *Router) handleHealthRun(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, rep)
+}
+
+func (r *Router) handleKernelAudit(w http.ResponseWriter, req *http.Request) {
+	rep := r.auditor.RunKernelAudit(req.Context())
+	writeJSON(w, http.StatusOK, rep)
+}
+
+func (r *Router) handleRouteAudit(w http.ResponseWriter, req *http.Request) {
+	rep := r.auditor.RunRouteAudit(req.Context())
+	writeJSON(w, http.StatusOK, rep)
+}
+
+func (r *Router) handlePMTUD(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var preq model.PMTUDProbeRequest
+	if err := json.NewDecoder(req.Body).Decode(&preq); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if strings.TrimSpace(preq.TargetIP) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "targetIP is required"})
+		return
+	}
+	pod, brief, ok := r.k8sStore.GetPod(preq.SrcNamespace, preq.SrcPod)
+	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("pod %s/%s not found", preq.SrcNamespace, preq.SrcPod)})
+		return
+	}
+	res, err := r.agents.RunPMTUD(req.Context(), brief.NodeName, string(pod.UID), brief.IP, brief.Namespace+"/"+brief.Name, preq)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+func (r *Router) handleBundleExport(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	traceID := strings.TrimSpace(req.URL.Query().Get("traceId"))
+	podParam := strings.TrimSpace(req.URL.Query().Get("pod"))
+
+	var (
+		wg          sync.WaitGroup
+		kernelAudit *model.ClusterKernelAuditReport
+		routeAudit  *model.ClusterRouteAuditReport
+		healthRep   *model.GlobalHealthReport
+		focusPod    *model.PodNetworkDetail
+	)
+
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		kernelAudit = r.auditor.RunKernelAudit(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		routeAudit = r.auditor.RunRouteAudit(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		if rep, err := r.health.Latest(cctx); err == nil {
+			healthRep = rep
+		}
+	}()
+
+	if podParam != "" {
+		parts := strings.SplitN(podParam, "/", 2)
+		if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				cctx, cancel := context.WithTimeout(ctx, 6*time.Second)
+				defer cancel()
+				if det, ok := r.buildPodDetail(cctx, parts[0], parts[1]); ok {
+					focusPod = det
+				}
+			}()
+		}
+	}
+	wg.Wait()
+
+	history := r.tracer.History()
+	var focusTrace *model.TraceFlowResult
+	if traceID != "" {
+		for i := range history {
+			if history[i].ID == traceID {
+				copyItem := history[i]
+				focusTrace = &copyItem
+				break
+			}
+		}
+	}
+
+	zipBytes, filename, err := bundle.BuildDiagnosticBundleZip(bundle.BundleInput{
+		GeneratedAt:      time.Now(),
+		Overview:         r.buildOverview(),
+		KernelAudit:      kernelAudit,
+		RouteAudit:       routeAudit,
+		IPAM:             r.k8sStore.GetIPAMSnapshot(),
+		Health:           healthRep,
+		TraceFlowHistory: history,
+		FocusTrace:       focusTrace,
+		FocusPod:         focusPod,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Content-Length", strconv.Itoa(len(zipBytes)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(zipBytes)
 }
 
 func (r *Router) handleDocs(w http.ResponseWriter, req *http.Request) {

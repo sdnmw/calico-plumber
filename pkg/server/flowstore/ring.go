@@ -54,11 +54,12 @@ type rawBucketEntry struct {
 
 // Store aggregates real-time flow samples across all nodes in a bounded in-memory ring.
 type Store struct {
-	k8sStore *k8s.Store
-	mu       sync.RWMutex
-	nodes    map[string]*NodeAgentSnapshot
-	entries  []rawBucketEntry
-	maxAge   time.Duration
+	k8sStore  *k8s.Store
+	mu        sync.RWMutex
+	nodes     map[string]*NodeAgentSnapshot
+	entries   []rawBucketEntry
+	bgpEvents []model.BGPEvent
+	maxAge    time.Duration
 }
 
 // NewStore creates a flow aggregation store retaining up to maxAge of samples.
@@ -67,10 +68,11 @@ func NewStore(k8sStore *k8s.Store, maxAge time.Duration) *Store {
 		maxAge = 1 * time.Hour
 	}
 	return &Store{
-		k8sStore: k8sStore,
-		nodes:    make(map[string]*NodeAgentSnapshot),
-		entries:  make([]rawBucketEntry, 0, 4096),
-		maxAge:   maxAge,
+		k8sStore:  k8sStore,
+		nodes:     make(map[string]*NodeAgentSnapshot),
+		entries:   make([]rawBucketEntry, 0, 4096),
+		bgpEvents: make([]model.BGPEvent, 0, 64),
+		maxAge:    maxAge,
 	}
 }
 
@@ -83,6 +85,31 @@ func (s *Store) Ingest(batch model.AgentFlowBatch) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Detect BGP session state transitions (flapping / session down / recovery) vs previous heartbeat
+	if prev, ok := s.nodes[batch.NodeName]; ok {
+		s.recordBGPTransitionsLocked(batch.NodeName, prev.BGPProtocols, batch.BGPProtocols, time.Now())
+	} else {
+		// Record initial non-Established BGP peers so immediate faults appear in timeline
+		for _, bp := range batch.BGPProtocols {
+			if !strings.EqualFold(bp.Proto, "BGP") {
+				continue
+			}
+			st := bgpStateLabel(bp)
+			if !strings.Contains(strings.ToLower(st), "established") {
+				s.appendBGPEventLocked(model.BGPEvent{
+					Timestamp: time.Now(),
+					NodeName:  batch.NodeName,
+					PeerName:  bp.Name,
+					PeerIP:    bp.PeerIP,
+					PrevState: "Unknown",
+					NewState:  st,
+					Severity:  "warning",
+					Message:   fmt.Sprintf("节点 %s 首次上报时 BGP 邻居 %s (%s) 状态异常: %s", batch.NodeName, bp.Name, bp.PeerIP, st),
+				})
+			}
+		}
+	}
 
 	s.nodes[batch.NodeName] = &NodeAgentSnapshot{
 		NodeName:      batch.NodeName,
@@ -144,6 +171,98 @@ func (s *Store) Ingest(batch model.AgentFlowBatch) {
 
 	// Prune expired or oversized buffer
 	s.pruneLocked(time.Now().Add(-s.maxAge))
+}
+
+// BGPEvents returns recent BGP peer state transition events (newest first).
+func (s *Store) BGPEvents() []model.BGPEvent {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]model.BGPEvent, len(s.bgpEvents))
+	copy(out, s.bgpEvents)
+	return out
+}
+
+func (s *Store) recordBGPTransitionsLocked(nodeName string, prevList, currList []model.BIRDProtocol, now time.Time) {
+	prevMap := make(map[string]model.BIRDProtocol)
+	for _, p := range prevList {
+		if strings.EqualFold(p.Proto, "BGP") {
+			prevMap[p.Name] = p
+		}
+	}
+	currMap := make(map[string]model.BIRDProtocol)
+	for _, c := range currList {
+		if strings.EqualFold(c.Proto, "BGP") {
+			currMap[c.Name] = c
+		}
+	}
+
+	for name, curr := range currMap {
+		currSt := bgpStateLabel(curr)
+		if prev, existed := prevMap[name]; existed {
+			prevSt := bgpStateLabel(prev)
+			if prevSt != currSt {
+				sev := "warning"
+				if strings.Contains(strings.ToLower(currSt), "established") {
+					sev = "info"
+				} else if strings.Contains(strings.ToLower(prevSt), "established") {
+					sev = "critical"
+				}
+				s.appendBGPEventLocked(model.BGPEvent{
+					Timestamp: now,
+					NodeName:  nodeName,
+					PeerName:  name,
+					PeerIP:    curr.PeerIP,
+					PrevState: prevSt,
+					NewState:  currSt,
+					Severity:  sev,
+					Message:   fmt.Sprintf("节点 %s BGP 邻居 %s (%s) 状态变更: %s → %s", nodeName, name, curr.PeerIP, prevSt, currSt),
+				})
+			}
+		} else {
+			s.appendBGPEventLocked(model.BGPEvent{
+				Timestamp: now,
+				NodeName:  nodeName,
+				PeerName:  name,
+				PeerIP:    curr.PeerIP,
+				PrevState: "None",
+				NewState:  currSt,
+				Severity:  "info",
+				Message:   fmt.Sprintf("节点 %s 新增 BGP 邻居 %s (%s)，当前状态 %s", nodeName, name, curr.PeerIP, currSt),
+			})
+		}
+	}
+
+	for name, prev := range prevMap {
+		if _, exists := currMap[name]; !exists {
+			s.appendBGPEventLocked(model.BGPEvent{
+				Timestamp: now,
+				NodeName:  nodeName,
+				PeerName:  name,
+				PeerIP:    prev.PeerIP,
+				PrevState: bgpStateLabel(prev),
+				NewState:  "Removed",
+				Severity:  "warning",
+				Message:   fmt.Sprintf("节点 %s BGP 邻居 %s (%s) 已从 BIRD 协议列表消失", nodeName, name, prev.PeerIP),
+			})
+		}
+	}
+}
+
+func (s *Store) appendBGPEventLocked(ev model.BGPEvent) {
+	s.bgpEvents = append([]model.BGPEvent{ev}, s.bgpEvents...)
+	if len(s.bgpEvents) > 200 {
+		s.bgpEvents = s.bgpEvents[:200]
+	}
+}
+
+func bgpStateLabel(bp model.BIRDProtocol) string {
+	if strings.TrimSpace(bp.Info) != "" {
+		return strings.TrimSpace(bp.Info)
+	}
+	if strings.TrimSpace(bp.State) != "" {
+		return strings.TrimSpace(bp.State)
+	}
+	return "Unknown"
 }
 
 func (s *Store) pruneLocked(cutoff time.Time) {

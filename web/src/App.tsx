@@ -6,6 +6,8 @@ import {
   Route,
   Wrench,
   HeartPulse,
+  ShieldCheck,
+  Download,
   Search,
   Sun,
   Moon,
@@ -20,10 +22,11 @@ import { IpamSearchPage } from './pages/IpamSearchPage';
 import { TraceFlowPage } from './pages/TraceFlowPage';
 import { TroubleshootPage } from './pages/TroubleshootPage';
 import { HealthPage } from './pages/HealthPage';
+import { AuditPage } from './pages/AuditPage';
 import { OmniSearchModal } from './components/layout/OmniSearchModal';
 import { PodInspectorDrawer } from './components/ipam/PodInspectorDrawer';
 
-type NavTab = 'overview' | 'topology' | 'ipam' | 'traceflow' | 'troubleshoot' | 'health';
+type NavTab = 'overview' | 'topology' | 'ipam' | 'traceflow' | 'troubleshoot' | 'audit' | 'health';
 
 export default function App() {
   const [tab, setTab] = useState<NavTab>('overview');
@@ -90,6 +93,7 @@ export default function App() {
     { id: 'ipam', label: 'IPAM 与搜索', icon: Grid },
     { id: 'traceflow', label: 'TraceFlow', icon: Route },
     { id: 'troubleshoot', label: 'Pod 排障', icon: Wrench },
+    { id: 'audit', label: '内核与路由审计', icon: ShieldCheck },
     { id: 'health', label: '全局健康', icon: HeartPulse },
   ];
 
@@ -178,6 +182,15 @@ export default function App() {
               {overview ? `${overview.nodes.length} Nodes · ${overview.podCount} Pods` : 'Connected'}
             </span>
             <a
+              href={api.getBundleExportUrl()}
+              download
+              title="一键打包导出集群离线诊断报告 (HTML + 内核/路由/IPAM/TraceFlow JSON)"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200/80 dark:border-blue-800 text-blue-700 dark:text-blue-300 transition"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">导出诊断包</span>
+            </a>
+            <a
               href="/docs/"
               target="_blank"
               rel="noopener noreferrer"
@@ -216,6 +229,7 @@ export default function App() {
           )}
           {tab === 'traceflow' && <TraceFlowPage initialReq={tracePrefill} />}
           {tab === 'troubleshoot' && <TroubleshootPage initialTarget={troubleshootPrefill} />}
+          {tab === 'audit' && <AuditPage />}
           {tab === 'health' && <HealthPage onLaunchTrace={launchTrace} />}
         </main>
       </div>

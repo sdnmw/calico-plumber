@@ -1,9 +1,13 @@
 import type {
+  ClusterKernelAuditReport,
   ClusterNetworkOverview,
+  ClusterRouteAuditReport,
   EnrichedFlow,
   GlobalHealthReport,
   HTTPProbeResponse,
   IPAMSnapshot,
+  PMTUDProbeRequest,
+  PMTUDProbeResult,
   PodBrief,
   PodNetworkDetail,
   SearchResultItem,
@@ -142,4 +146,23 @@ export const api = {
 
   getPcapDownloadUrl: (nodeName: string, captureId: string) =>
     `/api/v1/diag/pcap?node=${encodeURIComponent(nodeName)}&id=${encodeURIComponent(captureId)}`,
+
+  getKernelAudit: () => fetchJSON<ClusterKernelAuditReport>('/api/v1/audit/kernel'),
+
+  getRouteAudit: () => fetchJSON<ClusterRouteAuditReport>('/api/v1/audit/routes'),
+
+  runPMTUD: (req: PMTUDProbeRequest) =>
+    fetchJSON<PMTUDProbeResult>('/api/v1/diag/pmtud', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }),
+
+  getBundleExportUrl: (opts?: { traceId?: string; pod?: string }) => {
+    const p = new URLSearchParams();
+    if (opts?.traceId) p.set('traceId', opts.traceId);
+    if (opts?.pod) p.set('pod', opts.pod);
+    const qs = p.toString();
+    return qs ? `/api/v1/bundle/export?${qs}` : '/api/v1/bundle/export';
+  },
 };

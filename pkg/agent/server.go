@@ -43,7 +43,10 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/api/dataplane/host", s.handleHostDataplane)
 	mux.HandleFunc("/api/dataplane/pod", s.handlePodDataplane)
 	mux.HandleFunc("/api/dataplane/kubeproxy", s.handleKubeProxyLookup)
+	mux.HandleFunc("/api/dataplane/kernel-audit", s.handleKernelAudit)
+	mux.HandleFunc("/api/dataplane/routes", s.handleHostRoutes)
 	mux.HandleFunc("/api/diag/traceflow", s.handleTraceFlow)
+	mux.HandleFunc("/api/diag/pmtud", s.handlePMTUD)
 	mux.HandleFunc("/api/diag/tcp-handshake", s.handleTCPHandshake)
 	mux.HandleFunc("/api/diag/http-probe", s.handleHTTPProbe)
 	mux.HandleFunc("/api/diag/tcpdump", s.handleTCPDumpWS)
@@ -73,6 +76,39 @@ func (s *Server) handleHostDataplane(w http.ResponseWriter, _ *http.Request) {
 		"telemetryReason": reason,
 		"lastFlowsCount":  flows,
 	})
+}
+
+func (s *Server) handleKernelAudit(w http.ResponseWriter, _ *http.Request) {
+	audit := dataplane.InspectNodeKernelAudit(s.nodeName)
+	writeJSON(w, http.StatusOK, audit)
+}
+
+func (s *Server) handleHostRoutes(w http.ResponseWriter, _ *http.Request) {
+	routes := dataplane.DumpHostRoutes(s.nodeName)
+	writeJSON(w, http.StatusOK, routes)
+}
+
+func (s *Server) handlePMTUD(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var payload struct {
+		PodUID     string                  `json:"podUid"`
+		PodIP      string                  `json:"podIP"`
+		PodDisplay string                  `json:"podDisplay"`
+		Request    model.PMTUDProbeRequest `json:"request"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	res, err := diag.RunPMTUDProbe(r.Context(), payload.PodUID, payload.PodIP, payload.PodDisplay, payload.Request)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
 }
 
 func (s *Server) handlePodDataplane(w http.ResponseWriter, r *http.Request) {

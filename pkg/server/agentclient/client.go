@@ -87,6 +87,74 @@ func (c *Client) GetPodDataplane(ctx context.Context, nodeName, podUID, podIP st
 	return &out, nil
 }
 
+func (c *Client) GetKernelAudit(ctx context.Context, nodeName string) (*model.NodeKernelAudit, error) {
+	base, err := c.AgentAddress(nodeName)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/api/dataplane/kernel-audit", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("agent HTTP %d: %s", resp.StatusCode, string(raw))
+	}
+	var out model.NodeKernelAudit
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) GetHostRoutes(ctx context.Context, nodeName string) (*model.AgentHostRoutesResponse, error) {
+	base, err := c.AgentAddress(nodeName)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/api/dataplane/routes", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("agent HTTP %d: %s", resp.StatusCode, string(raw))
+	}
+	var out model.AgentHostRoutesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) RunPMTUD(ctx context.Context, nodeName, podUID, podIP, podDisplay string, preq model.PMTUDProbeRequest) (*model.PMTUDProbeResult, error) {
+	base, err := c.AgentAddress(nodeName)
+	if err != nil {
+		return nil, err
+	}
+	body := map[string]interface{}{
+		"podUid":     podUID,
+		"podIP":      podIP,
+		"podDisplay": podDisplay,
+		"request":    preq,
+	}
+	var out model.PMTUDProbeResult
+	if err := c.postJSON(ctx, base+"/api/diag/pmtud", body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) RunTraceCapture(ctx context.Context, nodeName string, treq model.AgentTraceCaptureRequest) (*model.AgentTraceCaptureResponse, error) {
 	base, err := c.AgentAddress(nodeName)
 	if err != nil {
