@@ -25,7 +25,7 @@
 <p align="center">
   <a href="#一项目功能简介">项目简介</a> ·
   <a href="#二快速部署方式">部署方式</a> ·
-  <a href="#三六大核心功能与演示">六大核心功能（含 GIF）</a> ·
+  <a href="#三七大核心功能与演示">七大核心功能（含 GIF）</a> ·
   <a href="docs/chaos-network-lab.md">Chaos Mesh 故障注入排障实验</a> ·
   <a href="#四故障注入排障实战与内置文档">文档与性能评估</a>
 </p>
@@ -171,18 +171,18 @@ kubectl delete -f https://raw.githubusercontent.com/sdnmw/calico-plumber/main/de
 
 ---
 
-## 三、六大核心功能与演示
+## 三、七大核心功能与演示
 
-下面通过 6 段在线集群实录 GIF，快速了解 **calico-plumber** 的六大核心模块。
+下面通过 7 段在线集群实录 GIF，快速了解 **calico-plumber** 的七大核心模块。
 
-### 1. 架构总览（Cluster Fabric Overview）
+### 1. 集群总览（Cluster Overview）
 
 进入控制台即可一屏掌控整个集群的 Calico 网络画像：
-- 自动识别 **Calico 封装模式**（BGP / IPIP / VXLAN / CrossSubnet）与 **`kube-proxy` 数据面模式**（iptables / IPVS / nftables）；
+- 顶部以简洁卡片呈现 Kubernetes / Calico 版本，自动识别 **Calico 封装模式**（BGP / IPIP / VXLAN / CrossSubnet）与 **`kube-proxy` 数据面模式**（iptables / IPVS / nftables）；
 - 展示 **实时活跃五元组数**、**平均连接延迟（RTT）** 与 **各节点遥测引擎分布**（`eBPF` vs `Legacy`）；
-- 实时列出每个节点的 **BIRD BGP Peer 会话状态**、内核版本、网卡拓扑与 IPPool 使用率，支持明暗主题切换与右上角一键打开内置技术文档。
+- 实时列出每个节点的 **BIRD BGP Peer 会话状态**（带 BGP Enabled / AS / Mesh 状态标签）、内核版本、网卡拓扑与 IPPool 使用率，支持明暗主题切换、一键导出诊断包与右上角打开内置技术文档。
 
-![01-架构总览](docs/assets/01-overview.gif)
+![01-集群总览](docs/assets/01-overview.gif)
 
 ---
 
@@ -190,8 +190,8 @@ kubectl delete -f https://raw.githubusercontent.com/sdnmw/calico-plumber/main/de
 
 将集群内实时活跃网络流渲染为可交互的有向拓扑图，快速发现异常流量、跨节点热点与高延迟链路：
 - 支持按 **Namespace / Workload / Pod / Node** 四个维度实时切换聚合粒度，并按关键词筛选 IP、端口或服务名；
-- 连线实时标注吞吐速率与延迟，点击任意流量边即可展开 **五元组明细抽屉**，查看精确的源/目的 IP:Port、协议、实时吞吐、平均 / P95 内核延迟、TCP 重传与 RST 统计；
-- 支持从任意异常连接直接一键跳转发起 **TraceFlow** 或 **TCPdump**。
+- 底部 **实时五元组流表** 支持鼠标悬停截断端点名即时显示完整 Pod/Service 名称与 `IP:Port`；
+- 连线实时标注吞吐速率与延迟，点击任意流量边即可展开 **五元组明细抽屉** 并一键发起 **TraceFlow** 或 **TCPdump**。
 
 ![02-全局流量拓扑](docs/assets/02-topology.gif)
 
@@ -200,9 +200,9 @@ kubectl delete -f https://raw.githubusercontent.com/sdnmw/calico-plumber/main/de
 ### 3. IPAM 全景与全局检索（IPAM Heatmap & Omni-Search）
 
 彻底告别手工翻查 Calico `IPAMBlock` 与 `BlockAffinity` 的繁琐过程：
-- **节点级 IPAM 位图热力图**：直观区分每个 IP 槽位的状态——**活跃 Pod**（绿）、**隧道 IP**（紫）、**跨节点借用**（黄）、**孤儿残留**（红）与 **空闲**（灰），快速排查 IP 耗尽与残留泄漏；
-- **Pod 深度检查抽屉**：点击热力图中的任意 IP 格即可侧滑查看该 Pod 所属节点、`cali*` veth 网卡、容器内路由表、生效的 NetworkPolicy 以及一键诊断入口；
-- **`⌘K` 全维度全局搜索**：在任意页面按下 `⌘K` / `Ctrl+K`，按 **Pod IP / ClusterIP / Pod / Deployment / Service / Node / 标签** 毫秒级定位排障目标。
+- **IPPool 与各节点 Block 占用双览**：顶部并排展示 `IPPool` 总水位与 **各节点 IPAM Block 占用卡片**（逐节点展示 Block 数、占用进度条及各 CIDR 槽位利用率）；
+- **节点级 IPAM 位图热力图**：直观区分每个 IP 槽位状态——**活跃 Pod**（绿）、**隧道 IP**（紫）、**跨节点借用**（黄）、**孤儿残留**（红）与 **空闲**（灰），点击任意已分配格即可侧滑查看 **Pod 数据面详情抽屉**（`cali*` veth、路由表、NetworkPolicy）；
+- **`⌘K` 全维度全局搜索**：在任意页面按 **Pod IP / ClusterIP / Pod / Deployment / Service / Node / 标签** 毫秒级定位排障目标。
 
 ![03-IPAM 与全局搜索](docs/assets/03-ipam-search.gif)
 
@@ -210,10 +210,10 @@ kubectl delete -f https://raw.githubusercontent.com/sdnmw/calico-plumber/main/de
 
 ### 4. 多跳路径追踪（Live TraceFlow）
 
-针对“同一集群内不通 / 偶发超时 / Service 转发异常”等疑难场景，提供真实报文级别的端到端多跳观测：
-- 支持 **同节点 Pod → Pod**、**跨节点 Pod → Pod**、**Pod → Service (DNAT)**、**Pod → Node** 及 **Pod → 外部 IP** 五类目标，支持 TCP / UDP / ICMP 协议；
-- 由源节点 Agent 切入源 Pod Netns 注入带唯一特征的真实探测报文，同时在源/目的双节点的 **`eth0` → `cali*` veth → 路由/NAT → `tunl0`/`vxlan.calico` → 物理网卡** 全路径同步捕获观测；
-- 按泳道可视化呈现 **正向路径与回程路径**，自动解包展示 IPIP / VXLAN 外层隧道头、每跳时间戳与精确丢包点。
+针对“同一集群内不通 / 偶发超时 / Service 转发异常 / 外部 SNAT”等疑难场景，提供真实报文级别的端到端多跳观测：
+- 默认提供 3 个 **一键快速场景**（跨节点 Pod → Pod、Pod → Service DNAT、Pod → 节点 ICMP），支持 TCP / UDP / ICMP 协议；
+- 按真实宿主机软件栈垂直分层绘制（**Node 底层 → 物理网卡 → OS 内核态/用户态 → 虚拟交换/隧道 → 容器 `eth0`**），并支持 **逐跳数据流动效回放**，清晰呈现源节点下行 → 物理网络 → 目标节点上行的真实转发路径；
+- 自动解包 IPIP / VXLAN 外层隧道头、识别 Calico `MASQUERADE --random-fully` SNAT 与 `hostNetwork` Service，结论栏支持一键 **导出本次诊断包**。
 
 ![04-多跳路径追踪](docs/assets/04-traceflow.gif)
 
@@ -230,12 +230,25 @@ kubectl delete -f https://raw.githubusercontent.com/sdnmw/calico-plumber/main/de
 
 ---
 
-### 6. 全局网络健康检查（Global Health Audit）
+### 6. 路由 / ARP 状态与诊断包导出（Route / ARP Audit & Bundle）
+
+面向 Calico 生产运维最常见的隐蔽故障，按网络平面逐层体检并支持一键留档：
+- **网络模式与 MTU 封装链路 + Path MTU DF 探测**：直观展示当前封装开销（BGP `0B` / IPIP `20B` / VXLAN `50B`）与物理 NIC → 隧道 → 容器 veth MTU 对齐状态，内置 Pod Netns **DF 大包黑洞二分探测**；
+- **网络异常体检结果（三要素呈现）**：以网络/业务语言简洁给出 **体检结果、根因预测、检测方法**，需要时可展开底层 **Conntrack / Sysctl 内核证据**；
+- **Calico BGP 邻居与 Expected vs Actual 路由一致性审计**：自动比对期望路由与各节点 Linux 主路由表，检出跨节点 Block 缺失、幽灵 Pod `/32` 残留、非对称路径与 BGP 状态翻转；
+- **二层 MAC 与 ARP 邻居表**：实时采集各节点物理网卡 MAC、默认网关 ARP、Calico `cali*` Proxy ARP 开关及 IPv4 邻居表，高亮 `FAILED` 条目；
+- **一键导出故障现场诊断包（`.zip`）**：内含零外链离线 `report.html` 与全量结构化 JSON 证据。
+
+![07-路由与ARP状态审计](docs/assets/07-route-arp-audit.gif)
+
+---
+
+### 7. 全局网络健康检查（Global Health Audit）
 
 用于变更前基准验证、变更后回归巡检及日常网络 SLA 监控：
-- **全节点 Pod-Pod N×N 延迟矩阵**：基于每节点轻量 Probe Pod 实测同节点与跨节点连通性及延迟，点击矩阵中任意异常单元格可直接带参跳转发起 **TraceFlow**；
+- **全节点 Pod-Pod N×N 延迟矩阵**：基于每节点轻量 Probe Pod 实测同节点与跨节点连通性及延迟，点击矩阵中任意单元格可直接带参跳转发起 **TraceFlow**；
 - **基础设施连通性检查**：自动验证 Pod-Node、Pod-SVC（Kubernetes API / CoreDNS）以及 Calico BGP 会话、MTU 一致性与 IPAM 水位；
-- **全集群 Service 后端穿透审计**：逐一对比每个 Service 的 **ClusterIP 访问连通性** 与 **直连各后端 Pod Endpoint 的 TCP 连通性**，一眼区分是 `kube-proxy` 规则问题还是后端业务 Pod 自身故障。
+- **全集群 Service 后端穿透审计（异常一键跳转）**：点击顶部 **「Service 后端健康」** 卡片（或其 `异常 / 降级 / 无后端` 计数）自动滚动定位至审计表、筛选 **仅异常** 并展开首条故障 Service 的后端 `TCP FAIL` 明细。
 
 ![06-全局网络健康检查](docs/assets/06-global-health.gif)
 

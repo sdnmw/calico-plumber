@@ -25,7 +25,7 @@
 <p align="center">
   <a href="#1-overview--capabilities">Overview</a> ·
   <a href="#2-quick-deployment">Deployment</a> ·
-  <a href="#3-six-core-modules--live-demos">6 Core Modules (GIF Demos)</a> ·
+  <a href="#3-seven-core-modules--live-demos">7 Core Modules (GIF Demos)</a> ·
   <a href="docs/chaos-network-lab.md">Chaos Mesh &amp; Fault Lab</a> ·
   <a href="#4-fault-injection-lab-built-in-docs--performance">Docs &amp; Performance</a>
 </p>
@@ -170,18 +170,18 @@ kubectl delete -f https://raw.githubusercontent.com/sdnmw/calico-plumber/main/de
 
 ---
 
-## 3. Six Core Modules & Live Demos
+## 3. Seven Core Modules & Live Demos
 
-Below are 6 live-recorded interactive GIFs captured directly from a running Kubernetes + Calico cluster showcasing every core capability of **calico-plumber**.
+Below are 7 live-recorded interactive GIFs captured directly from a running Kubernetes + Calico cluster showcasing every core capability of **calico-plumber**.
 
-### 1. Cluster Fabric Overview
+### 1. Cluster Overview
 
 Get a complete cluster networking snapshot at a glance:
-- Auto-detects **Calico encapsulation mode** (BGP / IPIP / VXLAN / CrossSubnet) and **`kube-proxy` mode** (iptables / IPVS / nftables);
-- Displays **live active 5-tuples**, **average connection RTT**, and **per-node telemetry engine distribution** (`eBPF` vs. `Legacy`);
-- Lists live **BIRD BGP peer sessions**, node kernel versions, NIC topology, and IPPool utilization, with light/dark theme toggle and one-click access to built-in Hugo docs.
+- Displays crisp Kubernetes & Calico version badges, auto-detects **Calico encapsulation mode** (BGP / IPIP / VXLAN / CrossSubnet) and **`kube-proxy` mode** (iptables / IPVS / nftables);
+- Shows **live active 5-tuples**, **average connection RTT**, and **per-node telemetry engine distribution** (`eBPF` vs. `Legacy`);
+- Lists live **BIRD BGP peer sessions** with status chips (`BGP Enabled`, `AS`, `Node-to-Node Mesh`), node kernel versions, NIC topology, and IPPool utilization, plus light/dark theme toggle, one-click Diagnostic Bundle export, and built-in Hugo docs.
 
-![01-Cluster Fabric Overview](docs/assets/01-overview.gif)
+![01-Cluster Overview](docs/assets/01-overview.gif)
 
 ---
 
@@ -189,8 +189,8 @@ Get a complete cluster networking snapshot at a glance:
 
 Visualize active cluster flows as an interactive directed graph to pinpoint anomalous connections, cross-node hotspots, and latency spikes:
 - Switch aggregation granularity in real time across **Namespace / Workload / Pod / Node**, and filter by IP, port, protocol, or workload name;
-- Edges display live throughput and latency; click any edge to open the **5-Tuple Flow Detail Drawer** showing exact `srcIP:port → dstIP:port`, protocol, throughput, average/P95 kernel RTT, TCP retransmits, and RST counts;
-- Launch **TraceFlow** or **TCPdump** directly from any suspicious connection in one click.
+- Hover over any truncated endpoint name in the **Live 5-Tuple Flows** table to reveal the full Pod/Service name and `IP:Port` immediately;
+- Edges display live throughput and latency; click any edge to open the **5-Tuple Flow Detail Drawer** and launch **TraceFlow** or **TCPdump** in one click.
 
 ![02-Live Traffic Topology](docs/assets/02-topology.gif)
 
@@ -199,8 +199,8 @@ Visualize active cluster flows as an interactive directed graph to pinpoint anom
 ### 3. IPAM Heatmap & Omni-Search
 
 Eliminate manual `calicoctl ipam show` and `IPAMBlock` YAML inspection:
-- **Per-Node IPAM Bitmap Heatmap**: Color-codes every IP slot across node blocks — **Active Pod** (green), **Tunnel IP** (purple), **Cross-Node Borrowed** (amber), **Orphan** (red), and **Free** (gray) — making IP exhaustion and IP leaks immediately visible;
-- **Pod Inspector Drawer**: Click any allocated IP cell to slide open host `cali*` veth details, Pod routing tables, matching NetworkPolicies, and quick diagnostic triggers;
+- **IPPool & Per-Node Block Occupancy**: Displays cluster `IPPool` capacity side-by-side with a **Per-Node IPAM Block Occupancy** card showing block counts, utilization bars, and per-CIDR usage chips;
+- **Per-Node IPAM Bitmap Heatmap**: Color-codes every IP slot — **Active Pod** (green), **Tunnel IP** (purple), **Cross-Node Borrowed** (amber), **Orphan** (red), and **Free** (gray) — click any allocated cell to open the **Pod Inspector Drawer** (`cali*` veth, Pod routes, NetworkPolicies);
 - **`⌘K` / `Ctrl+K` Global Omni-Search**: Search instantaneously by **Pod IP, ClusterIP, Pod, Deployment, Service, Node, or label** from any screen.
 
 ![03-IPAM Heatmap and Omni-Search](docs/assets/03-ipam-search.gif)
@@ -209,10 +209,10 @@ Eliminate manual `calicoctl ipam show` and `IPAMBlock` YAML inspection:
 
 ### 4. Multi-Hop Live TraceFlow
 
-End-to-end packet-level path tracing for hard-to-debug connectivity failures, silent drops, and Service DNAT issues:
-- Supports **Same-Node Pod → Pod**, **Cross-Node Pod → Pod**, **Pod → Service (DNAT)**, **Pod → Node**, and **Pod → External IP** over TCP / UDP / ICMP;
-- Injects a uniquely fingerprinted probe packet directly inside the source Pod's netns while simultaneously capturing across **`eth0` → `cali*` veth → Route / kube-proxy NAT → `tunl0` / `vxlan.calico` → Physical NIC** on both source and destination nodes;
-- Renders swimlane timelines for both **forward and return paths**, decodes outer IPIP/VXLAN headers, and highlights the exact drop hop and matched policy chain.
+End-to-end packet-level path tracing for hard-to-debug connectivity failures, silent drops, Service DNAT, and external SNAT:
+- Ships with 3 **One-Click Quick Scenarios** (Cross-Node Pod → Pod, Pod → Service DNAT, Pod → Node ICMP) over TCP / UDP / ICMP;
+- Renders a realistic vertical layered host stack (**Node Baseplate → Physical NIC → OS Kernel & User Space → vSwitch/Tunnel → Container `eth0`**) with **step-by-step hop-by-hop packet flow playback**;
+- Decodes outer IPIP/VXLAN headers, handles Calico `MASQUERADE --random-fully` SNAT and `hostNetwork` Services accurately, and supports **Export Diagnostic Bundle** right from the verdict banner.
 
 ![04-Multi-Hop TraceFlow](docs/assets/04-traceflow.gif)
 
@@ -229,12 +229,25 @@ Run deep L3–L7 diagnostics on any Pod without sidecars, `kubectl debug`, or pr
 
 ---
 
-### 6. Global Network Health Audit
+### 6. Route / ARP Audit & One-Click Diagnostic Bundle
+
+Layer-by-layer Calico network auditing with concise, actionable findings and offline incident packaging:
+- **Network Mode & MTU Encapsulation Chain + Path MTU DF Probe**: Visualizes encapsulation overhead (BGP `0B` / IPIP `20B` / VXLAN `50B`) and NIC → Tunnel → Pod veth MTU alignment, paired with an interactive Pod-Netns **DF Blackhole Binary-Search Probe**;
+- **Concise Diagnostic Findings**: Surfaces clear **Result, Root Cause Prediction, and Verification Method** with expandable **Conntrack / Sysctl Kernel Evidence** on demand;
+- **Calico BGP Neighbors & Expected vs. Actual Route Diff**: Compares expected Calico IPAM/Pod routes against live Linux kernel routing tables to catch missing blocks, ghost Pod `/32` routes, asymmetric paths, and BGP flapping;
+- **L2 MAC & ARP Neighbor Table**: Live physical NIC MAC, default gateway ARP, Calico `cali*` Proxy ARP status, and IPv4 neighbor cache highlighting `FAILED` entries;
+- **One-Click Diagnostic Bundle (`.zip`)**: Exports a self-contained offline `report.html` plus structured JSON evidence (`01..07-*.json`).
+
+![07-Route and ARP Audit](docs/assets/07-route-arp-audit.gif)
+
+---
+
+### 7. Global Network Health Audit
 
 Ideal for pre-change baselines, post-upgrade verification, and continuous cluster network checks:
-- **N×N Pod-to-Pod Latency Matrix**: Measures intra-node and cross-node Pod reachability and RTT across every node; click any degraded cell to jump straight into **TraceFlow** with prefilled endpoints;
+- **N×N Pod-to-Pod Latency Matrix**: Measures intra-node and cross-node Pod reachability and RTT across every node; click any cell to jump straight into **TraceFlow** with prefilled endpoints;
 - **Infrastructure Checks**: Continuously verifies Pod-Node, Pod-SVC (Kubernetes API / CoreDNS), Calico DaemonSet, BIRD BGP peers, NIC MTU consistency, and IPAM utilization;
-- **Cluster-Wide Service Backend Penetration Audit**: Compares **ClusterIP reachability** against **direct TCP probes to every backend Pod Endpoint**, immediately separating `kube-proxy` rule bugs from unhealthy application ports.
+- **Cluster-Wide Service Backend Penetration Audit (Click-to-Jump)**: Clicking the **Service Backend Health** KPI card (or its broken/degraded/no-endpoint counts) smoothly scrolls to the audit table, filters to abnormal services, and auto-expands the first failing Service to reveal backend `TCP FAIL` details.
 
 ![06-Global Network Health Audit](docs/assets/06-global-health.gif)
 
