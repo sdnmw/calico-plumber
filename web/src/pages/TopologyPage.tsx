@@ -717,12 +717,12 @@ export function TopologyPage({ initialContext, onLaunchTrace, onLaunchTCPDump }:
             <div className="px-3.5 py-2.5 border-b border-[#E9E1D6] dark:border-[#2E2721] bg-[#FAF6F1] dark:bg-[#231D18]">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-bold text-[#201B18] dark:text-[#F5F0EA]">
-                  值得优先排查的异常连接（最近 {windowLabel}）
+                  异常连接（最近 {windowLabel}）
                 </span>
                 <span className="text-[11px] font-mono text-[#8C7F73]">{anomalousEdges.length} 条</span>
               </div>
               <p className="text-[11px] text-[#8C7F73] mt-0.5 leading-snug">
-                按重传变化、RST 与延迟排序；右侧画布仅展开选中连接及其上下游 1 跳。
+                按重传、RST 与延迟排序，右侧仅展开选中连接及上下游 1 跳
               </p>
             </div>
 

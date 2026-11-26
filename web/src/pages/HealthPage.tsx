@@ -255,7 +255,7 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
             全局网络健康体检中心
           </h1>
           <p className="text-xs text-[#8C7F73] dark:text-[#A39587] mt-0.5">
-            最近巡检：{new Date(report.checkedAt).toLocaleString()}（耗时 {report.durationMs} ms）· 逐端口区分「已测成功 / 失败表现 / 未测」，异常项直达核验动作
+            最近巡检：{new Date(report.checkedAt).toLocaleString()}（耗时 {report.durationMs} ms）
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -617,7 +617,7 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
       >
         <SectionCard
           title={`全集群 Service 逐端口健康审计 (${report.serviceBackends.totalServices})`}
-          subtitle="点击任意 Service 展开逐端口明细（探测来源 / Service 端口 / 映射后端端口 / ClusterIP 结果 / 直连后端结果 / 失败表现）；操作按钮按证据动态推荐唯一最有效的下一步"
+          subtitle="点击任意 Service 展开逐端口探测结果，右侧按异常原因提供对应核验入口"
           action={
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -912,7 +912,7 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
       >
         <SectionCard
           title={`偶发故障现场留存与复测对比 (${incidents.length})`}
-          subtitle="自动捕获并去重记录失败的 Service 端口（含首次/最近失败时间与周边 Pod/后端/策略/BGP 变更时间轴），修复后点击「用相同条件复测」直接对比前后差异"
+          subtitle="记录失败端口的首次/最近出现时间与周边变更时间轴，支持同条件复测对比"
           action={
             savedNotice ? (
               <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{savedNotice}</span>

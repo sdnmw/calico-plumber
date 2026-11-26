@@ -333,7 +333,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
             Pod 排障工作台
           </h1>
           <p className="text-xs text-[#8C7F73] dark:text-[#A39587] mt-1">
-            新手直接按业务症状切入，系统自动带入端口并给出唯一最有价值的下一步；网络专家可随时切换底层抓包 / TCP / HTTP 工具
+            按症状选择源 Pod 与目标服务快速排查，或切换至抓包 / TCP / HTTP 底层工具
           </p>
         </div>
         <div className="inline-flex rounded-xl bg-[#F7F3EE] dark:bg-[#25201C] p-1 border border-[#E9E1D6] dark:border-[#2E2721] text-xs">
@@ -345,7 +345,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
                 : 'text-[#574D44] dark:text-[#D5C9BC] hover:text-[#201B18]'
             }`}
           >
-            <Compass className="w-3.5 h-3.5" /> 按症状排障（推荐）
+            <Compass className="w-3.5 h-3.5" /> 按症状排查
           </button>
           <button
             onClick={() => setPageMode('expert')}
@@ -355,7 +355,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
                 : 'text-[#574D44] dark:text-[#D5C9BC] hover:text-[#201B18]'
             }`}
           >
-            <Wrench className="w-3.5 h-3.5" /> 专家工具 (TCPdump / TCP / HTTP)
+            <Wrench className="w-3.5 h-3.5" /> 抓包与探测工具
           </button>
         </div>
       </div>
@@ -370,21 +370,21 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
                 {
                   id: 'service_fail',
                   title: '访问服务失败',
-                  desc: '连接被拒绝、超时或业务 Pod 连不上目标 Service；自动对比探针与业务 Pod 路径、容器真实监听端口与 Calico 策略',
+                  desc: '对比探针与业务 Pod 探测结果、后端监听端口及 Calico / K8s 策略',
                   icon: XCircle,
                   accent: 'text-rose-600 dark:text-rose-400',
                 },
                 {
                   id: 'slow_timeout',
                   title: '偶发超时或变慢',
-                  desc: '请求偶尔卡顿 5s 或延迟抖动；连续 5 轮实测 TCP 三次握手 RTT 波动，并一键关联重传异常与故障现场留存',
+                  desc: '连续 5 轮检测 TCP 三次握手延迟波动，并支持保存现场以便复测',
                   icon: Clock,
                   accent: 'text-[#D9720B] dark:text-[#FBB040]',
                 },
                 {
                   id: 'cross_node',
                   title: '只有跨节点访问失败',
-                  desc: '同节点正常、跨节点不通或丢包；自动核验跨节点连通性、策略差异并一键发起跨节点逐跳 TraceFlow 与 BGP 路由核对',
+                  desc: '核验跨节点连通性与策略差异，直接发起跨节点逐跳 TraceFlow',
                   icon: GitBranch,
                   accent: 'text-[#155A96] dark:text-[#7EB8E8]',
                 },
@@ -414,8 +414,8 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
 
           {/* Step 2: Pick Source Workload/Pod & Target Service (auto-fills port) */}
           <SectionCard
-            title="选择发起访问的源 Pod 与目标服务"
-            subtitle="选定目标 Service 后将自动带入该服务声明的端口，无需手动查 IP 或写 BPF 表达式"
+            title="选择源 Pod 与目标服务"
+            subtitle="选定目标 Service 后自动填充其声明端口"
           >
             <div className="p-4 space-y-3">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
@@ -528,8 +528,8 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
           {/* Step 3: Actionable Guided Verdict & Single Recommended Next Step */}
           {(guidedCompare || guidedTcp || guidedInspect) && (
             <SectionCard
-              title="症状诊断结论与唯一推荐下一步"
-              subtitle="区分「实际观测到」（实时探测/容器监听）与「按配置推算」（Calico/K8s NetworkPolicy 规则匹配）"
+              title="诊断结果与建议操作"
+              subtitle="区分「实际观测到」（实时探测 / 容器监听）与「按配置推算」（NetworkPolicy 规则）"
             >
               <div className="p-4 space-y-4">
                 {guidedCompare && (

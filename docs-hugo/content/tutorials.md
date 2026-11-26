@@ -60,7 +60,7 @@ kubectl -n calico-netdiag set env ds/calico-netdiag-agent TELEMETRY_MODE=auto
 
 1. 进入 **全局健康**：页面顶部第一行以一句可读结论概括跨节点探针连通性与全集群 Service 异常数量，点击 **「查看失败服务」** 直接定位故障列表。
 2. 展开目标 Service 行，查看**逐端口探测明细**（每一声明端口各占一行，列清探测来源、Service 端口、映射后端端口、ClusterIP 结果、直连后端结果与具体失败表现 `连接被拒绝` / `等待超时` / `未测`）。
-3. 点击该行依据证据动态生成的**唯一推荐下一步**按钮：
+3. 点击该行依据证据提供的对应排查按钮：
    - **Service 无后端 (`no-endpoints`)** → 点击 **「查看后端为什么为空」**，直接检查 Selector 标签匹配、Pod NotReady 原因及 EndpointSlice 原始记录；
    - **后端 Ready 但端口连接失败** → 点击 **「核对目标端口与监听状态」**，无需在业务容器安装任何工具，由 Agent 直接读取 Pod Netns `/proc/net/tcp` 返回容器内真实监听端口；
    - **直连后端成功但 ClusterIP 失败** → 点击 **「追踪这次 Service 转发」**，发起 TraceFlow 查看 `kube-proxy` DNAT 规则；
