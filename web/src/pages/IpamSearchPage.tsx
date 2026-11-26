@@ -89,10 +89,10 @@ export function IpamSearchPage({
         </button>
       </div>
 
-      {/* IPPool Summary Strip */}
+      {/* IPPool Summary + Per-Node Block Occupancy Strip */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {(ipam?.pools || []).map((pool) => (
-          <SectionCard key={pool.name} className="p-4">
+          <SectionCard key={pool.name} className="p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -122,6 +122,59 @@ export function IpamSearchPage({
             </div>
           </SectionCard>
         ))}
+
+        {/* Companion Card: Per-Node IPAM Block Occupancy */}
+        <SectionCard className="p-4">
+          <div className="flex items-center justify-between mb-2.5">
+            <h3 className="font-semibold text-sm text-slate-900 dark:text-white">各节点 IPAM Block 占用</h3>
+            <span className="text-[11px] font-mono text-slate-400">
+              {Object.keys(blocksByNode).length} 节点 · {(ipam?.blocks || []).length} Blocks
+            </span>
+          </div>
+          {Object.keys(blocksByNode).length === 0 ? (
+            <div className="text-xs text-slate-400 py-4 text-center">暂无节点 IPAM Block 数据</div>
+          ) : (
+            <div className="space-y-2.5">
+              {Object.entries(blocksByNode).map(([nodeName, blocks]) => {
+                const used = blocks.reduce((s, b) => s + b.allocatedSlots, 0);
+                const total = blocks.reduce((s, b) => s + b.totalSlots, 0);
+                const pct = total > 0 ? Math.round((used / total) * 1000) / 10 : 0;
+                const barCls = pct >= 85 ? 'bg-rose-500' : pct >= 65 ? 'bg-amber-500' : 'bg-emerald-500';
+                return (
+                  <div key={nodeName} className="space-y-1">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-mono font-semibold text-slate-800 dark:text-slate-100 truncate" title={nodeName}>
+                        {nodeName}
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0 font-mono text-[11px]">
+                        <span className="text-slate-500">{blocks.length} Blocks</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          {used}/{total} ({pct}%)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div className={`h-full rounded-full ${barCls}`} style={{ width: `${Math.max(pct, 2)}%` }} />
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {blocks.map((blk) => (
+                        <span
+                          key={blk.name}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100/90 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700"
+                        >
+                          <span>{blk.cidr}</span>
+                          <span className={blk.utilizationPercent >= 80 ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-slate-400'}>
+                            {blk.allocatedSlots}/{blk.totalSlots}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SectionCard>
       </div>
 
       {/* Per-Node IPAM Block Heatmap */}

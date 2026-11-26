@@ -88,12 +88,12 @@ export default function App() {
   };
 
   const navItems: { id: NavTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: 'overview', label: '架构总览', icon: LayoutDashboard },
+    { id: 'overview', label: '集群总览', icon: LayoutDashboard },
     { id: 'topology', label: '流量拓扑', icon: Share2 },
     { id: 'ipam', label: 'IPAM 与搜索', icon: Grid },
     { id: 'traceflow', label: 'TraceFlow', icon: Route },
     { id: 'troubleshoot', label: 'Pod 排障', icon: Wrench },
-    { id: 'audit', label: '网络体检与审计', icon: ShieldCheck },
+    { id: 'audit', label: '路由/ARP 状态', icon: ShieldCheck },
     { id: 'health', label: '全局健康', icon: HeartPulse },
   ];
 

@@ -529,7 +529,10 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
                   <div className="font-mono text-slate-700 dark:text-slate-300 break-all">
                     {f.src.ip}:{f.srcPort} → {f.dst.ip}:{f.dstPort}
                   </div>
-                  <div className="text-slate-500 truncate">
+                  <div
+                    className="text-slate-500 truncate"
+                    title={`${f.src.displayName} → ${f.viaService ? `[${f.viaService.displayName}] → ` : ''}${f.dst.displayName}`}
+                  >
                     {f.src.displayName} → {f.viaService ? `[${f.viaService.displayName}] → ` : ''}{f.dst.displayName}
                   </div>
                   <div className="flex items-center justify-between pt-1 border-t border-slate-200/70 dark:border-slate-800 font-mono text-[10px] text-slate-500">
@@ -590,21 +593,42 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                {liveFlows.slice(0, 80).map((f) => (
-                  <tr key={f.id} className="hover:bg-blue-50/40 dark:hover:bg-slate-800/50">
-                    <td className="px-3 py-1.5">
-                      <div className="text-slate-800 dark:text-slate-100 font-sans font-medium truncate max-w-[230px]">
-                        {f.src.displayName}
-                      </div>
-                      <div className="text-[10px] text-slate-400">{f.src.ip}:{f.srcPort}</div>
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <div className="text-slate-800 dark:text-slate-100 font-sans font-medium truncate max-w-[260px]">
-                        {f.viaService ? <span className="text-teal-600 dark:text-teal-400">[{f.viaService.serviceName}] → </span> : null}
-                        {f.dst.displayName}
-                      </div>
-                      <div className="text-[10px] text-slate-400">{f.dst.ip}:{f.dstPort}</div>
-                    </td>
+                {liveFlows.slice(0, 80).map((f, idx) => {
+                  const dstFull = `${f.viaService ? `[${f.viaService.serviceName}] → ` : ''}${f.dst.displayName}`;
+                  const tipPos = idx === 0 ? 'top-full mt-1' : 'bottom-full mb-1';
+                  return (
+                    <tr key={f.id} className="hover:bg-blue-50/40 dark:hover:bg-slate-800/50">
+                      <td className="px-3 py-1.5">
+                        <div className="relative group inline-block max-w-[230px] align-top">
+                          <div
+                            title={`${f.src.displayName} (${f.src.ip}:${f.srcPort})`}
+                            className="text-slate-800 dark:text-slate-100 font-sans font-medium truncate cursor-default"
+                          >
+                            {f.src.displayName}
+                          </div>
+                          <div className={`pointer-events-none hidden group-hover:block absolute left-0 ${tipPos} z-30 w-max max-w-[460px] px-2.5 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-mono shadow-lg border border-slate-700 break-all`}>
+                            <div>{f.src.displayName}</div>
+                            <div className="text-[10px] text-slate-300 mt-0.5">{f.src.ip}:{f.srcPort}</div>
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-slate-400">{f.src.ip}:{f.srcPort}</div>
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <div className="relative group inline-block max-w-[260px] align-top">
+                          <div
+                            title={`${dstFull} (${f.dst.ip}:${f.dstPort})`}
+                            className="text-slate-800 dark:text-slate-100 font-sans font-medium truncate cursor-default"
+                          >
+                            {f.viaService ? <span className="text-teal-600 dark:text-teal-400">[{f.viaService.serviceName}] → </span> : null}
+                            {f.dst.displayName}
+                          </div>
+                          <div className={`pointer-events-none hidden group-hover:block absolute left-0 ${tipPos} z-30 w-max max-w-[460px] px-2.5 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-mono shadow-lg border border-slate-700 break-all`}>
+                            <div>{dstFull}</div>
+                            <div className="text-[10px] text-slate-300 mt-0.5">{f.dst.ip}:{f.dstPort}</div>
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-slate-400">{f.dst.ip}:{f.dstPort}</div>
+                      </td>
                     <td className="px-3 py-1.5">
                       <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
                         {f.protocol}
@@ -630,16 +654,17 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
                         {f.engine === 'ebpf' ? 'ebpf' : 'legacy'}
                       </span>
                     </td>
-                    <td className="px-3 py-1.5 text-right">
-                      <button
-                        onClick={() => jumpTraceFromFlow(f)}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 font-sans font-medium"
-                      >
-                        <Route className="w-3 h-3" /> TraceFlow
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-3 py-1.5 text-right">
+                        <button
+                          onClick={() => jumpTraceFromFlow(f)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 font-sans font-medium"
+                        >
+                          <Route className="w-3 h-3" /> TraceFlow
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

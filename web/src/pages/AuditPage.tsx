@@ -47,17 +47,6 @@ const DRIFT_KIND_LABEL: Record<string, string> = {
   asymmetric_path: '跨节点去回程路径非对称',
 };
 
-const CATEGORY_LABEL: Record<string, string> = {
-  nat: 'NAT 转发 / 端口映射',
-  mtu: 'MTU 与封装链路',
-  l2: '二层 MAC / ARP',
-  routing: '三层路由转发',
-  conntrack: 'NAT 连接状态',
-  sysctl: '内核网络参数',
-  route: '三层路由',
-  bgp: 'BGP 邻居',
-};
-
 const ARP_ROLE_META: Record<string, { label: string; cls: string }> = {
   gateway: {
     label: '默认网关',
@@ -312,11 +301,11 @@ export function AuditPage() {
         <div>
           <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <Network className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span>网络体检与审计</span>
+            <span>路由 / ARP 状态</span>
             {kernelReport?.encapMode && <EncapBadge mode={kernelReport.encapMode} />}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            围绕网络模式与 MTU、Calico BGP 邻居与三层路由、二层 MAC/ARP 与 NAT 转发逐层体检；检测到问题后再按需查看 Conntrack 与内核参数详情
+            围绕网络模式与 MTU、Calico BGP 邻居与三层路由、二层 MAC/ARP 与 NAT 状态逐层检测
           </p>
         </div>
 
@@ -659,14 +648,13 @@ export function AuditPage() {
             </div>
           </SectionCard>
 
-          {/* 2. Detected Issues with Progressive Kernel Evidence Inspection */}
+          {/* 2. Concise Diagnostic Findings: Result + Root Cause Prediction + Verification Method */}
           <SectionCard
-            title="网络异常体检与根因排查"
-            subtitle="先用路由 / NAT / MAC / ARP / MTU 网络语言说明业务影响；点击单条记录的「查看内核证据」可展开 Conntrack 与 Sysctl 细节"
+            title="网络异常体检结果"
             action={
               kernelReport.findings.length === 0 ? (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="w-4 h-4" /> 全平面零异常
+                  <CheckCircle2 className="w-4 h-4" /> 全部正常
                 </span>
               ) : (
                 <span className="text-xs font-mono text-slate-500">共 {kernelReport.findings.length} 项</span>
@@ -674,11 +662,9 @@ export function AuditPage() {
             }
           >
             {kernelReport.findings.length === 0 ? (
-              <div className="px-4 py-5 flex items-center gap-3 text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-lg text-xs">
-                <CheckCircle2 className="w-5 h-5 shrink-0" />
-                <span>
-                  所有节点的二层 MAC/ARP、网关连通性、Calico Proxy ARP、多层 MTU 与 NAT 转发均完全健康，未检测到异常丢包或配置隐患。
-                </span>
+              <div className="px-4 py-4 flex items-center gap-2.5 text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-lg text-xs">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>二层 MAC/ARP、Calico Proxy ARP、多层 MTU 与 NAT 转发全部正常，无异常项。</span>
               </div>
             ) : (
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -686,53 +672,58 @@ export function AuditPage() {
                   const key = `${f.nodeName || 'cluster'}-${f.id}`;
                   const evidenceOpen = !!expandedEvidenceIds[key];
                   return (
-                    <div key={key} className="p-3.5 space-y-2">
+                    <div key={key} className="px-4 py-3 space-y-2">
+                      {/* Row 1: 体检结果 */}
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 min-w-0">
+                          <span className="text-[11px] font-semibold text-slate-400 shrink-0">体检结果</span>
                           <StatusPill status={f.severity} compact />
-                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300">
-                            {CATEGORY_LABEL[f.category] || f.category}
-                          </span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
                             {f.nodeName || '集群全局'}
                           </span>
-                          <span className="text-xs font-bold text-slate-900 dark:text-white">{f.title}</span>
+                          <span className="text-xs font-semibold text-slate-900 dark:text-white">{f.title}</span>
                         </div>
 
                         {f.kernelEvidence && (
                           <button
                             onClick={() => toggleEvidence(key)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 text-slate-600 dark:text-slate-300 hover:text-blue-700 dark:hover:text-blue-300 transition"
+                            className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition shrink-0"
                           >
                             <Terminal className="w-3 h-3" />
-                            <span>{evidenceOpen ? '收起内核证据' : '查看内核证据 (Conntrack / Sysctl)'}</span>
-                            {evidenceOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                            <span>{evidenceOpen ? '收起内核证据' : '查看内核证据'}</span>
                           </button>
                         )}
                       </div>
 
-                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{f.detail}</p>
-
-                      {/* Progressive Drilldown: Only revealed when user clicks into underlying kernel evidence */}
-                      {evidenceOpen && f.kernelEvidence && (
-                        <div className="px-3 py-2 rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/60 text-[11px] font-mono text-amber-900 dark:text-amber-200 space-y-1">
-                          <div className="text-[10px] font-sans font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
-                            底层内核态证据（仅排查根因时参考）
-                          </div>
-                          <div className="break-all">{f.kernelEvidence}</div>
+                      {/* Row 2 & 3: 根因预测 + 检测方法 */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 text-xs">
+                        <div className="flex items-start gap-2">
+                          <span className="text-[11px] font-semibold text-slate-400 shrink-0 mt-0.5">根因预测</span>
+                          <span className="text-slate-600 dark:text-slate-300 leading-relaxed">{f.detail}</span>
                         </div>
-                      )}
+                        {f.remediation && (
+                          <div className="flex items-start justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200/70 dark:border-slate-800">
+                            <div className="flex items-start gap-2 min-w-0">
+                              <span className="text-[11px] font-semibold text-slate-400 shrink-0 mt-0.5">检测方法</span>
+                              <span className="font-mono text-[11px] text-slate-700 dark:text-slate-300 break-words">
+                                {f.remediation}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => copyText(key, f.remediation || '')}
+                              className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] hover:text-blue-600"
+                            >
+                              {copiedKey === key ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                              <span>{copiedKey === key ? '已复制' : '复制'}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
 
-                      {f.remediation && (
-                        <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-slate-100/90 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 font-mono text-[11px] text-slate-700 dark:text-slate-300">
-                          <span className="truncate">建议：{f.remediation}</span>
-                          <button
-                            onClick={() => copyText(key, f.remediation || '')}
-                            className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] hover:text-blue-600"
-                          >
-                            {copiedKey === key ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-                            <span>{copiedKey === key ? '已复制' : '复制'}</span>
-                          </button>
+                      {evidenceOpen && f.kernelEvidence && (
+                        <div className="px-3 py-2 rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/60 text-[11px] font-mono text-amber-900 dark:text-amber-200 break-all">
+                          <span className="font-sans font-semibold text-[10px] text-amber-700 dark:text-amber-400 mr-2">底层内核态证据:</span>
+                          {f.kernelEvidence}
                         </div>
                       )}
                     </div>

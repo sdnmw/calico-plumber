@@ -51,13 +51,22 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Header Row */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Calico 网络架构总览
+            Calico 集群总览
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Kubernetes {data.k8sVersion} · {data.calicoVariant} {data.calicoVersion || ''} · 自动感知封装模式、kube-proxy 数据面与双引擎流量遥测
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.03)] text-slate-700 dark:text-slate-200">
+              <Server className="w-3.5 h-3.5 text-blue-500" />
+              <span className="text-slate-400">Kubernetes</span>
+              <span className="font-mono font-semibold">{data.k8sVersion}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.03)] text-slate-700 dark:text-slate-200">
+              <Shield className="w-3.5 h-3.5 text-indigo-500" />
+              <span className="text-slate-400">{data.calicoVariant}</span>
+              <span className="font-mono font-semibold">{data.calicoVersion || '—'}</span>
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <EncapBadge mode={data.primaryEncapMode} />
@@ -113,10 +122,7 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
       </div>
 
       {/* Node Dataplane & Adaptive Telemetry Matrix */}
-      <SectionCard
-        title="集群节点与自适应流量采集引擎"
-        subtitle="支持 BTF 的内核自动启用 eBPF 零侵入采集，不满足条件自动平滑降级为 Legacy 模式"
-      >
+      <SectionCard title="集群节点与自适应流量采集引擎">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-slate-50/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400">
@@ -197,7 +203,6 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SectionCard
           title="Calico IPPool 分配概览"
-          subtitle="点击查看详细节点 IPAM Block 热力图与资产检索"
           action={
             <button
               onClick={() => onNavigate('ipam')}
@@ -245,11 +250,34 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
 
         <SectionCard
           title="BIRD BGP 路由邻居状态"
-          subtitle={`BGP ${data.bgpEnabled ? 'Enabled' : 'Disabled'} · AS ${data.bgpAsNumber || 64512} · Node-to-Node Mesh: ${data.nodeToNodeMesh ? 'On' : 'Off'}`}
           action={
-            <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-              <GitBranch className="w-3.5 h-3.5" /> {data.bgpPeers?.length || 0} 会话
-            </span>
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              <span
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border ${
+                  data.bgpEnabled
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${data.bgpEnabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                BGP {data.bgpEnabled ? 'Enabled' : 'Disabled'}
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
+                AS {data.bgpAsNumber || 64512}
+              </span>
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border ${
+                  data.nodeToNodeMesh
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800'
+                    : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                }`}
+              >
+                Node-to-Node Mesh: {data.nodeToNodeMesh ? 'On' : 'Off'}
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
+                <GitBranch className="w-3 h-3" /> {data.bgpPeers?.length || 0} 会话
+              </span>
+            </div>
           }
         >
           <div className="overflow-x-auto">

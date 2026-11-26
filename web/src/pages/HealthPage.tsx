@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   RefreshCw,
   ChevronDown,
@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
+  ArrowDownRight,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { GlobalHealthReport, TraceFlowRequest } from '../api/types';
@@ -16,13 +17,43 @@ interface HealthPageProps {
   onLaunchTrace: (req: Partial<TraceFlowRequest>) => void;
 }
 
+type SvcFilterKey = 'all' | 'abnormal' | 'broken' | 'degraded' | 'no-endpoints' | 'healthy';
+
 export function HealthPage({ onLaunchTrace }: HealthPageProps) {
   const [report, setReport] = useState<GlobalHealthReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
-  const [svcFilter, setSvcFilter] = useState<'all' | 'broken' | 'degraded' | 'no-endpoints' | 'healthy'>('all');
+  const [svcFilter, setSvcFilter] = useState<SvcFilterKey>('all');
   const [svcSearch, setSvcSearch] = useState('');
   const [expandedSvc, setExpandedSvc] = useState<string | null>(null);
+  const [highlightSection, setHighlightSection] = useState<'matrix' | 'infra' | 'services' | null>(null);
+
+  const matrixSectionRef = useRef<HTMLDivElement>(null);
+  const infraSectionRef = useRef<HTMLDivElement>(null);
+  const svcSectionRef = useRef<HTMLDivElement>(null);
+
+  const scrollToSection = (section: 'matrix' | 'infra' | 'services') => {
+    const ref = section === 'matrix' ? matrixSectionRef : section === 'infra' ? infraSectionRef : svcSectionRef;
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setHighlightSection(section);
+    window.setTimeout(() => {
+      setHighlightSection((cur) => (cur === section ? null : cur));
+    }, 1800);
+  };
+
+  const jumpToServiceIssues = (filter: SvcFilterKey = 'abnormal') => {
+    setSvcFilter(filter);
+    setSvcSearch('');
+    const list = report?.serviceBackends.services || [];
+    const target = list.find((s) => {
+      if (filter === 'abnormal') return s.status === 'broken' || s.status === 'degraded' || s.status === 'no-endpoints';
+      return s.status === filter;
+    });
+    if (target) {
+      setExpandedSvc(`${target.namespace}/${target.name}`);
+    }
+    scrollToSection('services');
+  };
 
   const load = () => {
     setLoading(true);
@@ -57,7 +88,11 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
         : 'text-rose-600 dark:text-rose-400 border-rose-500';
 
   const filteredSvcs = (report.serviceBackends.services || []).filter((s) => {
-    if (svcFilter !== 'all' && s.status !== svcFilter) return false;
+    if (svcFilter === 'abnormal') {
+      if (s.status !== 'broken' && s.status !== 'degraded' && s.status !== 'no-endpoints') return false;
+    } else if (svcFilter !== 'all' && s.status !== svcFilter) {
+      return false;
+    }
     if (svcSearch) {
       const q = svcSearch.toLowerCase();
       return (
@@ -68,6 +103,11 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
     }
     return true;
   });
+
+  const abnormalSvcCount =
+    report.serviceBackends.brokenServices +
+    report.serviceBackends.degradedServices +
+    report.serviceBackends.noEndpointServices;
 
   // Lookup map for N x N matrix
   const cellMap = new Map((report.podToPod.cells || []).map((c) => [`${c.srcNode}|${c.dstNode}`, c]));
@@ -114,35 +154,96 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
           value={`${report.podToPod.healthyPairs}/${report.podToPod.totalPairs}`}
           sub={`均值 ${report.podToPod.avgLatencyMs}ms · 峰值 ${report.podToPod.maxLatencyMs}ms`}
           ok={report.podToPod.failedPairs === 0}
+          onClick={() => scrollToSection('matrix')}
+          hint={report.podToPod.failedPairs > 0 ? '查看失败明细' : undefined}
         />
         <HealthMiniCard
           title="Pod → Node 连通"
           value={`${report.podToNode.healthyChecks}/${report.podToNode.totalChecks}`}
           sub={`均值延迟 ${report.podToNode.avgLatencyMs} ms`}
           ok={report.podToNode.healthyChecks === report.podToNode.totalChecks}
+          onClick={() => scrollToSection('infra')}
+          hint={report.podToNode.healthyChecks < report.podToNode.totalChecks ? '查看异常明细' : undefined}
         />
         <HealthMiniCard
           title="Pod → SVC & DNS"
           value={`${report.podToService.healthyChecks}/${report.podToService.totalChecks}`}
           sub={`CoreDNS 解析均值 ${report.podToService.dnsAvgMs} ms`}
           ok={report.podToService.healthyChecks === report.podToService.totalChecks}
+          onClick={() => scrollToSection('infra')}
+          hint={report.podToService.healthyChecks < report.podToService.totalChecks ? '查看异常明细' : undefined}
         />
         <HealthMiniCard
           title="Service 后端健康"
           value={`${report.serviceBackends.healthyServices}/${report.serviceBackends.totalServices}`}
           sub={`异常 ${report.serviceBackends.brokenServices} · 降级 ${report.serviceBackends.degradedServices} · 无后端 ${report.serviceBackends.noEndpointServices}`}
-          ok={report.serviceBackends.brokenServices === 0}
+          ok={report.serviceBackends.brokenServices === 0 && report.serviceBackends.degradedServices === 0}
+          onClick={() =>
+            jumpToServiceIssues(
+              report.serviceBackends.brokenServices > 0 || report.serviceBackends.degradedServices > 0 || report.serviceBackends.noEndpointServices > 0
+                ? 'abnormal'
+                : 'all',
+            )
+          }
+          hint={abnormalSvcCount > 0 ? `点击定位 ${abnormalSvcCount} 项异常原因` : undefined}
+          subNode={
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  jumpToServiceIssues('broken');
+                }}
+                className={`hover:underline ${report.serviceBackends.brokenServices > 0 ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-slate-500'}`}
+              >
+                异常 {report.serviceBackends.brokenServices}
+              </button>
+              <span className="text-slate-300 dark:text-slate-700">·</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  jumpToServiceIssues('degraded');
+                }}
+                className={`hover:underline ${report.serviceBackends.degradedServices > 0 ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-slate-500'}`}
+              >
+                降级 {report.serviceBackends.degradedServices}
+              </button>
+              <span className="text-slate-300 dark:text-slate-700">·</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  jumpToServiceIssues('no-endpoints');
+                }}
+                className="text-slate-500 hover:underline hover:text-slate-800 dark:hover:text-slate-200"
+              >
+                无后端 {report.serviceBackends.noEndpointServices}
+              </button>
+            </div>
+          }
         />
         <HealthMiniCard
           title="Calico / BGP 底座"
           value={`${report.infrastructure.calicoNodesReady}/${report.infrastructure.calicoNodesTotal} Node`}
           sub={`BGP ${report.infrastructure.bgpEstablished}/${report.infrastructure.bgpTotal} · 孤儿 IP ${report.infrastructure.orphanIPCount}`}
           ok={report.infrastructure.calicoNodesReady === report.infrastructure.calicoNodesTotal && report.infrastructure.bgpEstablished === report.infrastructure.bgpTotal}
+          onClick={() => scrollToSection('infra')}
+          hint={
+            report.infrastructure.calicoNodesReady < report.infrastructure.calicoNodesTotal ||
+            report.infrastructure.bgpEstablished < report.infrastructure.bgpTotal
+              ? '查看底座异常'
+              : undefined
+          }
         />
       </div>
 
       {/* Middle Row: N x N Pod-Pod Matrix + Infra & CoreDNS Checklist */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div
+          ref={matrixSectionRef}
+          className={`scroll-mt-20 rounded-xl transition ${highlightSection === 'matrix' ? 'ring-2 ring-blue-500/70' : ''}`}
+        >
         <SectionCard
           title="Pod ↔ Pod 全节点连通性与延迟矩阵"
           subtitle="基于每节点轻量 Probe Pod 实测，点击任意单元格一键发起该两点 TraceFlow"
@@ -206,7 +307,12 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
             )}
           </div>
         </SectionCard>
+        </div>
 
+        <div
+          ref={infraSectionRef}
+          className={`scroll-mt-20 rounded-xl transition ${highlightSection === 'infra' ? 'ring-2 ring-blue-500/70' : ''}`}
+        >
         <SectionCard title="Calico 底座、Pod-Node 与 CoreDNS 巡检明细">
           <div className="p-4 space-y-4">
             <div className="space-y-2">
@@ -257,9 +363,14 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
             </div>
           </div>
         </SectionCard>
+        </div>
       </div>
 
       {/* Full Service & Backend Endpoint Health Audit Table */}
+      <div
+        ref={svcSectionRef}
+        className={`scroll-mt-20 rounded-xl transition ${highlightSection === 'services' ? 'ring-2 ring-rose-500/70' : ''}`}
+      >
       <SectionCard
         title={`全集群 Service & 后端 Endpoint 健康审计 (${report.serviceBackends.totalServices})`}
         subtitle="同时实测 ClusterIP 转发与直连各后端 Pod TargetPort，快速甄别 kube-proxy 异常 vs 应用未监听 vs 无就绪端点"
@@ -272,7 +383,7 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
               className="px-2.5 py-1 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none"
             />
             <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px]">
-              {(['all', 'broken', 'degraded', 'no-endpoints', 'healthy'] as const).map((f) => (
+              {(['all', 'abnormal', 'broken', 'degraded', 'no-endpoints', 'healthy'] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setSvcFilter(f)}
@@ -282,7 +393,7 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
                       : 'text-slate-500'
                   }`}
                 >
-                  {f === 'all' ? '全部' : f}
+                  {f === 'all' ? '全部' : f === 'abnormal' ? `仅异常 (${abnormalSvcCount})` : f}
                 </button>
               ))}
             </div>
@@ -397,19 +508,53 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
           </table>
         </div>
       </SectionCard>
+      </div>
     </div>
   );
 }
 
-function HealthMiniCard({ title, value, sub, ok }: { title: string; value: string; sub: string; ok: boolean }) {
+function HealthMiniCard({
+  title,
+  value,
+  sub,
+  ok,
+  onClick,
+  hint,
+  subNode,
+}: {
+  title: string;
+  value: string;
+  sub: string;
+  ok: boolean;
+  onClick?: () => void;
+  hint?: string;
+  subNode?: React.ReactNode;
+}) {
   return (
-    <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-      <div className="flex items-center justify-between">
+    <div
+      onClick={onClick}
+      className={`p-4 rounded-xl bg-white dark:bg-slate-900 border transition ${
+        !ok
+          ? 'border-rose-200 dark:border-rose-900/70 hover:border-rose-400 dark:hover:border-rose-600'
+          : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700'
+      } ${onClick ? 'cursor-pointer hover:shadow-sm' : ''}`}
+    >
+      <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-slate-500">{title}</span>
-        <span className={`w-2 h-2 rounded-full ${ok ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+        <span className={`w-2 h-2 rounded-full ${ok ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
       </div>
       <div className="mt-1.5 text-lg font-bold font-mono text-slate-900 dark:text-white">{value}</div>
-      <div className="mt-1 text-[11px] text-slate-500 truncate" title={sub}>{sub}</div>
+      {subNode || (
+        <div className="mt-1 text-[11px] text-slate-500 truncate" title={sub}>
+          {sub}
+        </div>
+      )}
+      {hint && (
+        <div className="mt-1.5 inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+          <span>{hint}</span>
+          <ArrowDownRight className="w-3 h-3" />
+        </div>
+      )}
     </div>
   );
 }

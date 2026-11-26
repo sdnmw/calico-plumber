@@ -39,7 +39,7 @@ kubectl -n calico-netdiag set env ds/calico-netdiag-agent TELEMETRY_MODE=legacy
 kubectl -n calico-netdiag set env ds/calico-netdiag-agent TELEMETRY_MODE=auto
 ```
 
-切换后在 **架构总览** 页面的“集群节点与自适应流量采集引擎”表格中，可实时看到每个节点的引擎标签（绿色 `eBPF` 或蓝色 `Legacy`）及具体判定原因。
+切换后在 **集群总览** 页面的“集群节点与自适应流量采集引擎”表格中，可实时看到每个节点的引擎标签（绿色 `eBPF` 或蓝色 `Legacy`）及具体判定原因。
 
 ---
 
@@ -47,7 +47,7 @@ kubectl -n calico-netdiag set env ds/calico-netdiag-agent TELEMETRY_MODE=auto
 
 ### 场景一：跨节点 Pod 之间访问不通
 
-1. **先查底座**：进入 **架构总览** 或 **网络体检与审计**，确认当前 Calico 模式（BGP / IPIP / VXLAN）、BIRD BGP 邻居是否全部为 `Established`，以及两节点网卡 MTU 是否一致。
+1. **先查底座**：进入 **集群总览** 或 **路由/ARP 状态**，确认当前 Calico 模式（BGP / IPIP / VXLAN）、BIRD BGP 邻居是否全部为 `Established`，以及两节点网卡 MTU 是否一致。
 2. **一键追踪**：直接进入 **TraceFlow** 点击内置的 **「跨节点 Pod → Pod」** 快速场景，或按快捷键 `⌘K` 搜索源 Pod 点击 **TraceFlow**。
 3. **选择目标 Pod**、协议（`TCP`/`ICMP`）与端口，点击 **执行 Trace**（也可随时点击右上角 **「逐跳演示」** 按真实节点分层逐步回放数据包流向）。
 4. **看分层拓扑定位断点**：
@@ -102,7 +102,7 @@ kubectl -n calico-netdiag set env ds/calico-netdiag-agent TELEMETRY_MODE=auto
 
 ### 场景七：小包能通、大包或 TLS 握手卡死——排查 Calico 网络模式与 MTU 黑洞
 
-1. 进入 **网络体检与审计 → 网络模式 · MTU · NAT 体检**，查看 **Calico 网络模式与 MTU 封装链路** 卡片：
+1. 进入 **路由/ARP 状态 → 网络模式 · MTU · NAT 体检**，查看 **Calico 网络模式与 MTU 封装链路** 卡片：
    - 确认当前封装开销（BGP 直连 `0B`、IPIP `20B`、VXLAN `50B`）以及各节点 `物理 NIC → 隧道接口 → 容器 veth` 三层 MTU 是否对齐；
    - 若存在跨节点物理 MTU 不一致或容器 veth MTU 大于 `物理 MTU - 封装开销`，系统会自动标红提示。
 2. 在页面下方 **Path MTU / DF 大包黑洞探测** 卡片中，选择源 Pod 并一键点选对端节点探针或目标 IP，点击 **执行 DF 探测**。
@@ -110,14 +110,14 @@ kubectl -n calico-netdiag set env ds/calico-netdiag-agent TELEMETRY_MODE=auto
 
 ### 场景八：偶发 DNS 5 秒超时、路由丢失或二层 ARP 故障排查
 
-1. **查 BGP 邻居与三层路由**：进入 **网络体检与审计 → Calico BGP 邻居与三层路由**，核对 BIRD BGP 邻居是否全部 `Established`、**Expected vs Actual 路由一致性审计** 是否存在缺失 Block 路由、幽灵 Pod `/32` 路由或去回程非对称路径，并展开节点主路由表按 `BIRD / 本地 Pod /32 / Blackhole` 检索。
+1. **查 BGP 邻居与三层路由**：进入 **路由/ARP 状态 → Calico BGP 邻居与三层路由**，核对 BIRD BGP 邻居是否全部 `Established`、**Expected vs Actual 路由一致性审计** 是否存在缺失 Block 路由、幽灵 Pod `/32` 路由或去回程非对称路径，并展开节点主路由表按 `BIRD / 本地 Pod /32 / Blackhole` 检索。
 2. **查二层 MAC 与 ARP**：切换到 **二层 MAC 与 ARP 邻居表**，检查默认网关与同网段集群节点的 ARP 状态（是否存在 `FAILED / INCOMPLETE`）、`cali*` Proxy ARP 启用率以及 ARP 表水位。
-3. **查 NAT 端口竞态与内核证据**：回到 **网络模式 · MTU · NAT 体检**，查看 **网络异常体检与根因排查** 卡片；如需进一步确认多核 SNAT / UDP 端口冲突计数，点击单条异常右侧的 **查看内核证据 (Conntrack / Sysctl)** 或展开底部 **高级深度排障** 面板即可核查原始指标并一键复制修复命令。
+3. **查 NAT 端口竞态与内核证据**：回到 **网络模式 · MTU · NAT 体检**，查看 **网络异常体检结果** 卡片；如需进一步确认多核 SNAT / UDP 端口冲突计数，点击单条异常右侧的 **查看内核证据** 或展开底部 **高级深度排障** 面板即可核查原始指标并一键复制检测命令。
 
 ### 场景九：一键导出故障现场诊断包用于工单流转与离线复盘
 
 1. 在以下任意位置点击导出即可下载 `calico-plumber-diag-<timestamp>.zip`：
    - 页面顶部全局导航栏 **「导出诊断包」**（全集群全景诊断包）；
-   - **网络体检与审计** 页面右上角 **「一键导出诊断包 (.zip)」**；
+   - **路由/ARP 状态** 页面右上角 **「一键导出诊断包 (.zip)」**；
    - **TraceFlow** 诊断结论栏右侧 **「导出本次诊断包」**（自动附带本次 `traceId` 的完整逐跳抓包与判定记录）。
 2. 解压后用浏览器直接打开 **`report.html`**（无需联网，支持打印为 PDF），或将 `01..07-*.json` 原始数据连同工单发给网络/SRE 团队协作分析。
