@@ -18,6 +18,7 @@ import (
 	"calico-netdiag/pkg/server/bundle"
 	"calico-netdiag/pkg/server/flowstore"
 	"calico-netdiag/pkg/server/healthcheck"
+	"calico-netdiag/pkg/server/incident"
 	"calico-netdiag/pkg/server/traceflow"
 
 	"github.com/gorilla/websocket"
@@ -32,6 +33,7 @@ type Router struct {
 	tracer     *traceflow.Orchestrator
 	health     *healthcheck.Runner
 	auditor    *audit.Auditor
+	incidents  *incident.Store
 	staticFS   fs.FS
 	docsFS     fs.FS
 	upgrader   websocket.Upgrader
@@ -48,6 +50,11 @@ func NewRouter(
 	staticFS fs.FS,
 	docsFS fs.FS,
 ) http.Handler {
+	incStore := incident.NewStore(namespace, k8sStore, flows, agents)
+	if health != nil {
+		health.SetOnReport(incStore.IngestHealthReport)
+	}
+
 	r := &Router{
 		namespace: namespace,
 		k8sStore:  k8sStore,
@@ -56,6 +63,7 @@ func NewRouter(
 		tracer:    tracer,
 		health:    health,
 		auditor:   audit.NewAuditor(k8sStore, flows, agents),
+		incidents: incStore,
 		staticFS:  staticFS,
 		docsFS:    docsFS,
 		upgrader: websocket.Upgrader{
@@ -85,10 +93,14 @@ func NewRouter(
 	mux.HandleFunc("/api/v1/diag/tcp-handshake", r.handleTCPHandshake)
 	mux.HandleFunc("/api/v1/diag/http-probe", r.handleHTTPProbe)
 	mux.HandleFunc("/api/v1/diag/pmtud", r.handlePMTUD)
+	mux.HandleFunc("/api/v1/diag/service-inspect", r.handleServiceInspect)
+	mux.HandleFunc("/api/v1/diag/compare-sources", r.handleCompareSources)
 	mux.HandleFunc("/api/v1/diag/tcpdump/ws", r.handleTCPDumpWS)
 	mux.HandleFunc("/api/v1/diag/pcap", r.handlePcapDownload)
 	mux.HandleFunc("/api/v1/health", r.handleHealth)
 	mux.HandleFunc("/api/v1/health/run", r.handleHealthRun)
+	mux.HandleFunc("/api/v1/incidents", r.handleIncidents)
+	mux.HandleFunc("/api/v1/incidents/retest", r.handleIncidentRetest)
 	mux.HandleFunc("/api/v1/audit/kernel", r.handleKernelAudit)
 	mux.HandleFunc("/api/v1/audit/routes", r.handleRouteAudit)
 	mux.HandleFunc("/api/v1/bundle/export", r.handleBundleExport)
@@ -681,6 +693,7 @@ func (r *Router) handleBundleExport(w http.ResponseWriter, req *http.Request) {
 		TraceFlowHistory: history,
 		FocusTrace:       focusTrace,
 		FocusPod:         focusPod,
+		Incidents:        r.incidents.List(ctx),
 	})
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

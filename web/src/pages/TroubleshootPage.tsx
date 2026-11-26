@@ -12,28 +12,58 @@ import {
   ShieldCheck,
   CheckCircle2,
   XCircle,
+  AlertTriangle,
+  Route,
+  Compass,
+  Wrench,
+  Clock,
+  GitBranch,
+  Radio,
+  BookmarkPlus,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type {
+  CompareSourcesResponse,
   HTTPProbeResponse,
   PacketFrame,
   PodBrief,
   PodNetworkDetail,
+  ServiceBrief,
+  ServiceInspectResponse,
   TCPDumpControlMessage,
   TCPHandshakeResponse,
+  TraceFlowRequest,
 } from '../api/types';
 import { SectionCard, StatusPill } from '../components/common/Badges';
 
 interface TroubleshootPageProps {
   initialTarget?: { ns: string; pod: string; tool: 'tcpdump' | 'tcp' | 'http' } | null;
+  onLaunchTrace?: (req: Partial<TraceFlowRequest>) => void;
+  onNavigate?: (tab: string) => void;
 }
 
-export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
+type SymptomKind = 'service_fail' | 'slow_timeout' | 'cross_node';
+
+export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: TroubleshootPageProps) {
+  const [pageMode, setPageMode] = useState<'guided' | 'expert'>(initialTarget ? 'expert' : 'guided');
   const [pods, setPods] = useState<PodBrief[]>([]);
+  const [services, setServices] = useState<ServiceBrief[]>([]);
   const [ns, setNs] = useState('');
   const [podName, setPodName] = useState('');
   const [podDetail, setPodDetail] = useState<PodNetworkDetail | null>(null);
   const [activeTool, setActiveTool] = useState<'tcpdump' | 'tcp' | 'http'>('tcpdump');
+
+  // Symptom-guided state
+  const [symptom, setSymptom] = useState<SymptomKind>('service_fail');
+  const [targetSvcNs, setTargetSvcNs] = useState('');
+  const [targetSvcName, setTargetSvcName] = useState('');
+  const [targetSvcPort, setTargetSvcPort] = useState(80);
+  const [guidedRunning, setGuidedRunning] = useState(false);
+  const [guidedErr, setGuidedErr] = useState('');
+  const [guidedCompare, setGuidedCompare] = useState<CompareSourcesResponse | null>(null);
+  const [guidedInspect, setGuidedInspect] = useState<ServiceInspectResponse | null>(null);
+  const [guidedTcp, setGuidedTcp] = useState<TCPHandshakeResponse | null>(null);
+  const [guidedSaved, setGuidedSaved] = useState('');
 
   // TCPdump state
   const [targetIface, setTargetIface] = useState('pod:eth0');
@@ -66,13 +96,28 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
   const [httpError, setHttpError] = useState('');
 
   useEffect(() => {
-    api.listPods().then((list) => {
+    Promise.all([api.listPods(), api.listServices()]).then(([list, svcs]) => {
       const running = list.filter((p) => p.phase === 'Running' && p.ip);
       setPods(running);
+      setServices(svcs);
       if (!initialTarget && !podName && running.length > 0) {
-        const def = running.find((p) => p.namespace === 'petclinic-training' || p.namespace === 'demo') || running[0];
+        const def =
+          running.find((p) => p.namespace !== 'kube-system' && p.namespace !== 'calico-netdiag' && !p.hostNetwork) ||
+          running.find((p) => !p.hostNetwork) ||
+          running[0];
         setNs(def.namespace);
         setPodName(def.name);
+      }
+      if (!targetSvcName && svcs.length > 0) {
+        const defSvc =
+          svcs.find((s) => s.name === 'lb-adapter-service') ||
+          svcs.find((s) => s.clusterIP && s.clusterIP !== 'None' && s.ports?.length > 0 && s.namespace !== 'default') ||
+          svcs[0];
+        if (defSvc) {
+          setTargetSvcNs(defSvc.namespace);
+          setTargetSvcName(defSvc.name);
+          setTargetSvcPort(defSvc.ports?.[0] || 80);
+        }
       }
     });
     return () => {
@@ -82,6 +127,7 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
 
   useEffect(() => {
     if (!initialTarget) return;
+    setPageMode('expert');
     setNs(initialTarget.ns);
     setPodName(initialTarget.pod);
     setActiveTool(initialTarget.tool);
@@ -206,18 +252,434 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
     }
   };
 
+  const svcNamespaces = Array.from(new Set(services.map((s) => s.namespace))).sort();
+  const svcsInTargetNs = services.filter((s) => s.namespace === targetSvcNs);
+  const selectedTargetSvc = services.find((s) => s.namespace === targetSvcNs && s.name === targetSvcName);
+
+  const runGuidedDiagnosis = async () => {
+    if (!ns || !podName || !targetSvcNs || !targetSvcName) {
+      setGuidedErr('请先选择源 Pod 与目标 Service');
+      return;
+    }
+    setGuidedRunning(true);
+    setGuidedErr('');
+    setGuidedCompare(null);
+    setGuidedInspect(null);
+    setGuidedTcp(null);
+    setGuidedSaved('');
+
+    try {
+      const port = targetSvcPort || selectedTargetSvc?.ports?.[0] || 80;
+      if (symptom === 'service_fail') {
+        const [cmp, insp] = await Promise.all([
+          api.compareSources({
+            srcNamespace: ns,
+            srcPod: podName,
+            targetNamespace: targetSvcNs,
+            targetService: targetSvcName,
+            targetPort: port,
+            protocol: 'TCP',
+          }),
+          api.inspectService(targetSvcNs, targetSvcName, port),
+        ]);
+        setGuidedCompare(cmp);
+        setGuidedInspect(insp);
+      } else if (symptom === 'slow_timeout') {
+        const targetHost =
+          selectedTargetSvc?.clusterIP && selectedTargetSvc.clusterIP !== 'None'
+            ? selectedTargetSvc.clusterIP
+            : `${targetSvcName}.${targetSvcNs}.svc.cluster.local`;
+        const [tcpRes, insp] = await Promise.all([
+          api.runTCPHandshake({
+            srcNamespace: ns,
+            srcPod: podName,
+            targetHost,
+            targetPort: port,
+            count: 5,
+            timeoutMs: 2500,
+          }),
+          api.inspectService(targetSvcNs, targetSvcName, port),
+        ]);
+        setGuidedTcp(tcpRes);
+        setGuidedInspect(insp);
+      } else {
+        // cross_node -> compare + direct jump to TraceFlow
+        const [cmp, insp] = await Promise.all([
+          api.compareSources({
+            srcNamespace: ns,
+            srcPod: podName,
+            targetNamespace: targetSvcNs,
+            targetService: targetSvcName,
+            targetPort: port,
+            protocol: 'TCP',
+          }),
+          api.inspectService(targetSvcNs, targetSvcName, port),
+        ]);
+        setGuidedCompare(cmp);
+        setGuidedInspect(insp);
+      }
+    } catch (e: unknown) {
+      setGuidedErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGuidedRunning(false);
+    }
+  };
+
   return (
     <div className="p-6 space-y-5 max-w-[1600px] mx-auto">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-[#201B18] dark:text-[#F5F0EA]">
-          Pod 深度排障工作台
-        </h1>
-        <p className="text-xs text-[#8C7F73] dark:text-[#A39587] mt-1">
-          直接切入目标 Pod Netns（无需业务容器预装 tcpdump/curl/shell），执行实时抓包、TCP 三次握手报文分析与 HTTP/HTTPS 全链路耗时探测
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-[#201B18] dark:text-[#F5F0EA]">
+            Pod 排障工作台
+          </h1>
+          <p className="text-xs text-[#8C7F73] dark:text-[#A39587] mt-1">
+            新手直接按业务症状切入，系统自动带入端口并给出唯一最有价值的下一步；网络专家可随时切换底层抓包 / TCP / HTTP 工具
+          </p>
+        </div>
+        <div className="inline-flex rounded-xl bg-[#F7F3EE] dark:bg-[#25201C] p-1 border border-[#E9E1D6] dark:border-[#2E2721] text-xs">
+          <button
+            onClick={() => setPageMode('guided')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition ${
+              pageMode === 'guided'
+                ? 'bg-[#F08C18] text-white shadow-xs'
+                : 'text-[#574D44] dark:text-[#D5C9BC] hover:text-[#201B18]'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5" /> 按症状排障（推荐）
+          </button>
+          <button
+            onClick={() => setPageMode('expert')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition ${
+              pageMode === 'expert'
+                ? 'bg-[#F08C18] text-white shadow-xs'
+                : 'text-[#574D44] dark:text-[#D5C9BC] hover:text-[#201B18]'
+            }`}
+          >
+            <Wrench className="w-3.5 h-3.5" /> 专家工具 (TCPdump / TCP / HTTP)
+          </button>
+        </div>
       </div>
 
-      {/* Target Pod Selector & Live Context Strip */}
+      {/* ==================== SYMPTOM-FIRST GUIDED MODE ==================== */}
+      {pageMode === 'guided' && (
+        <div className="space-y-4">
+          {/* Step 1: Pick a Business Symptom */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            {(
+              [
+                {
+                  id: 'service_fail',
+                  title: '访问服务失败',
+                  desc: '连接被拒绝、超时或业务 Pod 连不上目标 Service；自动对比探针与业务 Pod 路径、容器真实监听端口与 Calico 策略',
+                  icon: XCircle,
+                  accent: 'text-rose-600 dark:text-rose-400',
+                },
+                {
+                  id: 'slow_timeout',
+                  title: '偶发超时或变慢',
+                  desc: '请求偶尔卡顿 5s 或延迟抖动；连续 5 轮实测 TCP 三次握手 RTT 波动，并一键关联重传异常与故障现场留存',
+                  icon: Clock,
+                  accent: 'text-[#D9720B] dark:text-[#FBB040]',
+                },
+                {
+                  id: 'cross_node',
+                  title: '只有跨节点访问失败',
+                  desc: '同节点正常、跨节点不通或丢包；自动核验跨节点连通性、策略差异并一键发起跨节点逐跳 TraceFlow 与 BGP 路由核对',
+                  icon: GitBranch,
+                  accent: 'text-[#155A96] dark:text-[#7EB8E8]',
+                },
+              ] as const
+            ).map((card) => {
+              const Icon = card.icon;
+              const active = symptom === card.id;
+              return (
+                <button
+                  key={card.id}
+                  onClick={() => setSymptom(card.id)}
+                  className={`text-left p-4 rounded-xl border transition ${
+                    active
+                      ? 'bg-[#FFF4E4]/80 dark:bg-[#F08C18]/15 border-[#F08C18] shadow-sm'
+                      : 'bg-white dark:bg-[#1C1815] border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#FAD4A1]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-[#201B18] dark:text-[#F5F0EA]">{card.title}</span>
+                    <Icon className={`w-4 h-4 ${card.accent}`} />
+                  </div>
+                  <p className="text-[11px] text-[#574D44] dark:text-[#A39587] mt-1.5 leading-relaxed">{card.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Step 2: Pick Source Workload/Pod & Target Service (auto-fills port) */}
+          <SectionCard
+            title="选择发起访问的源 Pod 与目标服务"
+            subtitle="选定目标 Service 后将自动带入该服务声明的端口，无需手动查 IP 或写 BPF 表达式"
+          >
+            <div className="p-4 space-y-3">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
+                <div className="lg:col-span-4 space-y-1">
+                  <label className="text-[11px] font-semibold text-[#8C7F73]">1. 源工作负载 / Pod（谁在发起访问）</label>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    <select
+                      value={ns}
+                      onChange={(e) => {
+                        const nextNs = e.target.value;
+                        setNs(nextNs);
+                        const first = pods.find((p) => p.namespace === nextNs);
+                        if (first) setPodName(first.name);
+                      }}
+                      className="col-span-2 px-2.5 py-2 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721]"
+                    >
+                      {namespaces.map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={podName}
+                      onChange={(e) => setPodName(e.target.value)}
+                      className="col-span-3 px-2.5 py-2 text-xs font-mono rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721]"
+                    >
+                      {podsInNs.map((p) => (
+                        <option key={p.name} value={p.name}>
+                          {p.workloadName ? `[${p.workloadName}] ` : ''}{p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-5 space-y-1">
+                  <label className="text-[11px] font-semibold text-[#8C7F73]">2. 目标 Service（要访问哪个服务）</label>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    <select
+                      value={targetSvcNs}
+                      onChange={(e) => {
+                        const nextNs = e.target.value;
+                        setTargetSvcNs(nextNs);
+                        const first = services.find((s) => s.namespace === nextNs);
+                        if (first) {
+                          setTargetSvcName(first.name);
+                          setTargetSvcPort(first.ports?.[0] || 80);
+                        }
+                      }}
+                      className="col-span-2 px-2.5 py-2 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721]"
+                    >
+                      {svcNamespaces.map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={targetSvcName}
+                      onChange={(e) => {
+                        setTargetSvcName(e.target.value);
+                        const found = svcsInTargetNs.find((s) => s.name === e.target.value);
+                        if (found?.ports?.[0]) setTargetSvcPort(found.ports[0]);
+                      }}
+                      className="col-span-3 px-2.5 py-2 text-xs font-mono rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721]"
+                    >
+                      {svcsInTargetNs.map((s) => (
+                        <option key={s.name} value={s.name}>
+                          {s.name} ({s.clusterIP})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-1 space-y-1">
+                  <label className="text-[11px] font-semibold text-[#8C7F73]">3. 端口</label>
+                  {selectedTargetSvc && selectedTargetSvc.ports?.length > 1 ? (
+                    <select
+                      value={targetSvcPort}
+                      onChange={(e) => setTargetSvcPort(Number(e.target.value))}
+                      className="w-full px-2 py-2 text-xs font-mono rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721]"
+                    >
+                      {selectedTargetSvc.ports.map((pt) => (
+                        <option key={pt} value={pt}>{pt}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="number"
+                      value={targetSvcPort}
+                      onChange={(e) => setTargetSvcPort(Number(e.target.value))}
+                      className="w-full px-2 py-2 text-xs font-mono rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721]"
+                    />
+                  )}
+                </div>
+
+                <div className="lg:col-span-2">
+                  <button
+                    onClick={runGuidedDiagnosis}
+                    disabled={guidedRunning}
+                    className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#F08C18] hover:bg-[#D9720B] disabled:opacity-50 text-white text-xs font-bold shadow-sm transition"
+                  >
+                    {guidedRunning ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                    <span>{guidedRunning ? '诊断中...' : '开始按症状诊断'}</span>
+                  </button>
+                </div>
+              </div>
+              {guidedErr && <p className="text-xs text-rose-600">{guidedErr}</p>}
+            </div>
+          </SectionCard>
+
+          {/* Step 3: Actionable Guided Verdict & Single Recommended Next Step */}
+          {(guidedCompare || guidedTcp || guidedInspect) && (
+            <SectionCard
+              title="症状诊断结论与唯一推荐下一步"
+              subtitle="区分「实际观测到」（实时探测/容器监听）与「按配置推算」（Calico/K8s NetworkPolicy 规则匹配）"
+            >
+              <div className="p-4 space-y-4">
+                {guidedCompare && (
+                  <div className="p-4 rounded-xl bg-[#FFF4E4]/70 dark:bg-[#F08C18]/10 border border-[#FAD4A1] dark:border-[#F08C18]/40 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-[#9E4A05] dark:text-[#FBB040]">综合判断</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                          实测观测 + 策略推算
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs font-medium text-[#201B18] dark:text-[#F5F0EA] leading-relaxed">
+                      {guidedCompare.conclusion}
+                    </p>
+                    {guidedInspect && (
+                      <p className="text-[11px] text-[#574D44] dark:text-[#D5C9BC]">
+                        <b>后端与监听核实（实际观测到）：</b>{guidedInspect.conclusion}
+                      </p>
+                    )}
+                    <div className="pt-2 flex flex-wrap items-center gap-2">
+                      {onLaunchTrace && (
+                        <button
+                          onClick={() =>
+                            onLaunchTrace({
+                              srcNamespace: ns,
+                              srcPod: podName,
+                              targetType: 'service',
+                              dstNamespace: targetSvcNs,
+                              dstName: targetSvcName,
+                              protocol: 'TCP',
+                              dstPort: targetSvcPort,
+                            })
+                          }
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#F08C18] hover:bg-[#D9720B] text-white text-xs font-semibold shadow-xs"
+                        >
+                          <Route className="w-3.5 h-3.5" />
+                          <span>{symptom === 'cross_node' ? '执行跨节点逐跳 TraceFlow' : '追踪这次 Service 转发 (TraceFlow)'}</span>
+                        </button>
+                      )}
+                      {symptom === 'cross_node' && onNavigate && (
+                        <button
+                          onClick={() => onNavigate('audit')}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#EDF5FC] text-[#155A96] border border-[#C4DCF0] text-xs font-semibold"
+                        >
+                          查看 BGP 邻居与三层路由一致性
+                        </button>
+                      )}
+                      <button
+                        onClick={async () => {
+                          await api.createIncident({
+                            title: `${ns}/${podName} → ${targetSvcNs}/${targetSvcName}:${targetSvcPort} (${symptom})`,
+                            kind: 'service_port',
+                            srcNamespace: ns,
+                            srcPod: podName,
+                            targetNamespace: targetSvcNs,
+                            targetService: targetSvcName,
+                            targetClusterIP: guidedCompare.targetClusterIP,
+                            targetBackendPod: guidedCompare.backendPod,
+                            targetBackendIP: guidedCompare.backendIP,
+                            servicePort: targetSvcPort,
+                            backendPort: guidedCompare.backendPort,
+                            protocol: 'TCP',
+                            failureSummary: guidedCompare.businessOutcome.clusterIPFailure || guidedCompare.businessOutcome.directPodFailure || '症状排查留存',
+                          });
+                          setGuidedSaved('已保存到「全局健康 → 故障现场与复测」，修复后可一键复测对比');
+                        }}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] text-xs font-medium text-[#574D44] dark:text-[#D5C9BC] hover:border-[#F08C18]"
+                      >
+                        <BookmarkPlus className="w-3.5 h-3.5" /> 留存为可复测故障现场
+                      </button>
+                      {guidedSaved && <span className="text-[11px] text-emerald-600 font-semibold">{guidedSaved}</span>}
+                    </div>
+                  </div>
+                )}
+
+                {guidedTcp && (
+                  <div className="p-4 rounded-xl bg-[#FAF6F1] dark:bg-[#14110F] border border-[#E9E1D6] dark:border-[#2E2721] space-y-2.5 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-bold text-[#201B18] dark:text-[#F5F0EA]">
+                        连续 5 轮 TCP 握手抖动实测（实际观测到）
+                      </span>
+                      <span className="font-mono text-[11px] text-[#574D44] dark:text-[#D5C9BC]">
+                        成功 {guidedTcp.successCount}/{guidedTcp.totalCount} · 最小 {guidedTcp.minRttMs}ms / 均值 {guidedTcp.avgRttMs}ms / 最大 {guidedTcp.maxRttMs}ms
+                      </span>
+                    </div>
+                    <p className="text-[#574D44] dark:text-[#D5C9BC]">{guidedTcp.diagnosis}</p>
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {onNavigate && (
+                        <button
+                          onClick={() => onNavigate('topology')}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#F08C18] hover:bg-[#D9720B] text-white text-xs font-semibold"
+                        >
+                          查看流量拓扑「异常重传连接」
+                        </button>
+                      )}
+                      {onNavigate && (
+                        <button
+                          onClick={() => onNavigate('audit')}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#EDF5FC] text-[#155A96] border border-[#C4DCF0] text-xs font-semibold"
+                        >
+                          <Radio className="w-3.5 h-3.5" /> 检测 DF Path MTU 与出向 NAT 端口冲突
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {guidedCompare && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    {[
+                      { label: '巡检探针 Pod（对照组）', o: guidedCompare.probeOutcome },
+                      { label: '业务源 Pod（当前排查对象）', o: guidedCompare.businessOutcome },
+                    ].map(({ label, o }) => (
+                      <div key={label} className="p-3 rounded-xl bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-[#201B18] dark:text-[#F5F0EA]">{label}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                            实际观测到
+                          </span>
+                        </div>
+                        <div className="font-mono text-[11px] text-[#8C7F73]">
+                          {o.podNamespace}/{o.podName} ({o.podIP} @ {o.nodeName})
+                        </div>
+                        <div className="flex flex-wrap gap-3 font-mono text-[11px]">
+                          <span className={o.clusterIPOk ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold'}>
+                            ClusterIP: {o.clusterIPOk ? `可达 ${o.clusterIPLatencyMs}ms` : o.clusterIPFailure || '失败'}
+                          </span>
+                          <span className={o.directPodOk ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold'}>
+                            直连后端: {o.directPodOk ? `可达 ${o.directPodLatencyMs}ms` : o.directPodFailure || '失败'}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[#574D44] dark:text-[#A39587]">
+                          <span className="px-1.5 py-0.2 rounded bg-[#EDF5FC] text-[#155A96] text-[10px] mr-1.5">按配置推算</span>
+                          出站策略命中：{o.egressPolicies?.length || 0} 条
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+          )}
+        </div>
+      )}
+
+      {/* ==================== EXPERT TOOLBOX MODE ==================== */}
+      {pageMode === 'expert' && (
+        <>
+          {/* Target Pod Selector & Live Context Strip */}
       <SectionCard className="p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
@@ -675,6 +1137,8 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
             </SectionCard>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   );

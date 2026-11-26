@@ -28,6 +28,14 @@ import { PodInspectorDrawer } from './components/ipam/PodInspectorDrawer';
 
 type NavTab = 'overview' | 'topology' | 'ipam' | 'traceflow' | 'troubleshoot' | 'audit' | 'health';
 
+export interface TopologyContextSnapshot {
+  windowSec: number;
+  namespace: string;
+  granularity: 'namespace' | 'workload' | 'pod' | 'node';
+  viewMode: 'anomaly' | 'panorama';
+  selectedEdgeId?: string | null;
+}
+
 export default function App() {
   const [tab, setTab] = useState<NavTab>('overview');
   const [dark, setDark] = useState(false);
@@ -37,6 +45,7 @@ export default function App() {
   // Cross-page navigation context
   const [inspectPod, setInspectPod] = useState<{ ns: string; name: string } | null>(null);
   const [tracePrefill, setTracePrefill] = useState<Partial<TraceFlowRequest> | null>(null);
+  const [topologyReturnCtx, setTopologyReturnCtx] = useState<TopologyContextSnapshot | null>(null);
   const [troubleshootPrefill, setTroubleshootPrefill] = useState<{
     ns: string;
     pod: string;
@@ -67,8 +76,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const launchTrace = (req: Partial<TraceFlowRequest>) => {
+  const launchTrace = (req: Partial<TraceFlowRequest>, fromTopo?: TopologyContextSnapshot) => {
     setTracePrefill({ ...req });
+    setTopologyReturnCtx(fromTopo || null);
     setTab('traceflow');
   };
 
@@ -216,6 +226,7 @@ export default function App() {
           {tab === 'overview' && <OverviewPage onNavigate={(t) => setTab(t as NavTab)} />}
           {tab === 'topology' && (
             <TopologyPage
+              initialContext={topologyReturnCtx}
               onLaunchTrace={launchTrace}
               onLaunchTCPDump={(ns, pod) => launchTroubleshoot(ns, pod, 'tcpdump')}
             />
@@ -227,8 +238,20 @@ export default function App() {
               onLaunchTroubleshoot={launchTroubleshoot}
             />
           )}
-          {tab === 'traceflow' && <TraceFlowPage initialReq={tracePrefill} />}
-          {tab === 'troubleshoot' && <TroubleshootPage initialTarget={troubleshootPrefill} />}
+          {tab === 'traceflow' && (
+            <TraceFlowPage
+              initialReq={tracePrefill}
+              returnTopologyCtx={topologyReturnCtx}
+              onReturnTopology={() => setTab('topology')}
+            />
+          )}
+          {tab === 'troubleshoot' && (
+            <TroubleshootPage
+              initialTarget={troubleshootPrefill}
+              onLaunchTrace={launchTrace}
+              onNavigate={(t) => setTab(t as NavTab)}
+            />
+          )}
           {tab === 'audit' && <AuditPage />}
           {tab === 'health' && <HealthPage onLaunchTrace={launchTrace} />}
         </main>

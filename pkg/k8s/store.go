@@ -29,6 +29,7 @@ type Store struct {
 	nodes            map[string]*corev1.Node
 	nodeByIP         map[string]*corev1.Node
 	namespaces       []string
+	namespaceLabels  map[string]map[string]string
 	pods             map[string]*corev1.Pod     // ns/name
 	podsByIP         map[string]*corev1.Pod     // non-hostNetwork pod IP -> Pod
 	podBriefs        map[string]model.PodBrief  // ns/name
@@ -42,6 +43,8 @@ type Store struct {
 	replicaSetOwners map[string]ownerRef // ns/rsName -> Deployment owner
 	k8sNetPols       []networkingv1.NetworkPolicy
 	calicoNetPols    []RawCalicoPolicy
+	changeEvents     []model.ClusterChangeEvent // bounded recent Pod/EndpointSlice/Policy transitions
+	hasInitialSync   bool
 
 	installInfo    CalicoInstallInfo
 	felixConfig    FelixConfigInfo
@@ -68,6 +71,7 @@ func NewStore(clients *Clients) *Store {
 		clients:          clients,
 		nodes:            make(map[string]*corev1.Node),
 		nodeByIP:         make(map[string]*corev1.Node),
+		namespaceLabels:  make(map[string]map[string]string),
 		pods:             make(map[string]*corev1.Pod),
 		podsByIP:         make(map[string]*corev1.Pod),
 		podBriefs:        make(map[string]model.PodBrief),
@@ -77,6 +81,7 @@ func NewStore(clients *Clients) *Store {
 		endpointSlices:   make(map[string][]*discoveryv1.EndpointSlice),
 		replicaSetOwners: make(map[string]ownerRef),
 		ipLookup:         make(map[string]IPLookupMeta),
+		changeEvents:     make([]model.ClusterChangeEvent, 0, 128),
 	}
 }
 
@@ -157,9 +162,11 @@ func (s *Store) Refresh(ctx context.Context) error {
 
 	// Namespaces
 	namespaces := make([]string, 0)
+	nsLabels := make(map[string]map[string]string)
 	if nsList != nil {
 		for _, ns := range nsList.Items {
 			namespaces = append(namespaces, ns.Name)
+			nsLabels[ns.Name] = ns.Labels
 		}
 		sort.Strings(namespaces)
 	}
@@ -249,10 +256,20 @@ func (s *Store) Refresh(ctx context.Context) error {
 	}
 
 	s.mu.Lock()
-	s.updatedAt = time.Now()
+	now := time.Now()
+	if s.hasInitialSync {
+		var npItems []networkingv1.NetworkPolicy
+		if npList != nil {
+			npItems = npList.Items
+		}
+		s.recordClusterDiffsLocked(now, podsMap, epSlices, npItems, calicoPols)
+	}
+	s.hasInitialSync = true
+	s.updatedAt = now
 	s.nodes = nodesMap
 	s.nodeByIP = nodeByIP
 	s.namespaces = namespaces
+	s.namespaceLabels = nsLabels
 	s.pods = podsMap
 	s.podsByIP = podsByIP
 	s.podBriefs = podBriefs

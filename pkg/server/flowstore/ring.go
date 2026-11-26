@@ -373,17 +373,41 @@ func (s *Store) QueryFlows(windowSec int, namespaceFilter, search, protocolFilte
 		limit = 300
 	}
 	cutoff := time.Now().Add(-time.Duration(windowSec) * time.Second)
+	prevStart := cutoff.Add(-time.Duration(windowSec) * time.Second)
 
 	s.mu.RLock()
-	// Snapshot relevant entries
+	// Snapshot relevant entries for current window [cutoff, now] and previous equal window [prevStart, cutoff)
 	relevant := make([]rawBucketEntry, 0, 1024)
+	prevRelevant := make([]rawBucketEntry, 0, 512)
+	hasOlderBaseline := len(s.entries) > 0 && s.entries[0].timestamp.Before(cutoff.Add(-15*time.Second))
 	for i := len(s.entries) - 1; i >= 0; i-- {
-		if s.entries[i].timestamp.Before(cutoff) {
+		ts := s.entries[i].timestamp
+		if ts.Before(prevStart) {
 			break
 		}
-		relevant = append(relevant, s.entries[i])
+		if !ts.Before(cutoff) {
+			relevant = append(relevant, s.entries[i])
+		} else {
+			prevRelevant = append(prevRelevant, s.entries[i])
+		}
 	}
 	s.mu.RUnlock()
+
+	// Aggregate previous window retransmits by 4-tuple (proto|srcIP|dstIP|dstPort) so ephemeral srcPort changes still compare cleanly
+	prevFlowRetrans := make(map[string]uint64)
+	prevFlowSeen := make(map[string]string) // key -> firstNode for cross-node dedup
+	for _, e := range prevRelevant {
+		if protocolFilter != "" && !strings.EqualFold(e.protocol, protocolFilter) {
+			continue
+		}
+		pk := fmt.Sprintf("%s|%s|%s:%d", e.protocol, e.srcIP, e.dstIP, e.dstPort)
+		if fn, ok := prevFlowSeen[pk]; !ok {
+			prevFlowSeen[pk] = e.nodeName
+			prevFlowRetrans[pk] += uint64(e.retransmits)
+		} else if fn == e.nodeName {
+			prevFlowRetrans[pk] += uint64(e.retransmits)
+		}
+	}
 
 	// Aggregate by 5-tuple (with deduplication across src & dst nodes: pick one node's byte counters if both report the exact same 5-tuple)
 	grouped := make(map[string]*aggFlow)
@@ -490,32 +514,46 @@ func (s *Store) QueryFlows(windowSec int, namespaceFilter, search, protocolFilte
 
 		crossNode := srcID.NodeName != "" && dstID.NodeName != "" && srcID.NodeName != dstID.NodeName
 		health := classifyFlowHealth(avgMs, af.retransmits, af.resets)
+		pk := fmt.Sprintf("%s|%s|%s:%d", af.protocol, af.srcIP, af.dstIP, af.dstPort)
+		prevRet := prevFlowRetrans[pk]
+		retPerMB, estRate, rateNote, deltaPct, anomScore, anomReasons := computeAnomalyMetrics(
+			af.retransmits, af.resets, af.txBytes, af.rxBytes, af.txPkts, af.rxPkts, avgMs, af.engine, windowSec, prevRet, hasOlderBaseline,
+		)
 
 		out = append(out, model.EnrichedFlow{
-			ID:            key,
-			Src:           srcID,
-			Dst:           dstID,
-			ViaService:    viaSvc,
-			Protocol:      af.protocol,
-			SrcPort:       af.srcPort,
-			DstPort:       af.dstPort,
-			BytesTotal:    totalBytes,
-			TxBytes:       af.txBytes,
-			RxBytes:       af.rxBytes,
-			PacketsTotal:  totalPkts,
-			BytesPerSec:   bps,
-			PacketsPerSec: pps,
-			LatencyAvgMs:  avgMs,
-			LatencyP95Ms:  p95Ms,
-			LatencyMaxMs:  maxMs,
-			Retransmits:   af.retransmits,
-			Resets:        af.resets,
-			Connections:   1,
-			State:         af.state,
-			CrossNode:     crossNode,
-			Engine:        af.engine,
-			Health:        health,
-			LastSeen:      af.lastSeen,
+			ID:                   key,
+			Src:                  srcID,
+			Dst:                  dstID,
+			ViaService:           viaSvc,
+			Protocol:             af.protocol,
+			SrcPort:              af.srcPort,
+			DstPort:              af.dstPort,
+			BytesTotal:           totalBytes,
+			TxBytes:              af.txBytes,
+			RxBytes:              af.rxBytes,
+			PacketsTotal:         totalPkts,
+			BytesPerSec:          bps,
+			PacketsPerSec:        pps,
+			LatencyAvgMs:         avgMs,
+			LatencyP95Ms:         p95Ms,
+			LatencyMaxMs:         maxMs,
+			Retransmits:          af.retransmits,
+			Resets:               af.resets,
+			Connections:          1,
+			State:                af.state,
+			CrossNode:            crossNode,
+			Engine:               af.engine,
+			Health:               health,
+			LastSeen:             af.lastSeen,
+			WindowSec:            windowSec,
+			PrevRetransmits:      prevRet,
+			RetransmitDeltaPct:   deltaPct,
+			BaselineAvailable:    hasOlderBaseline,
+			RetransmitPerMB:      retPerMB,
+			EstRetransmitRatePct: estRate,
+			RateNote:             rateNote,
+			AnomalyScore:         anomScore,
+			AnomalyReasons:       anomReasons,
 		})
 	}
 
@@ -563,10 +601,17 @@ func (s *Store) BuildTopology(granularity string, windowSec int, namespaces []st
 	nodeLatCnt := make(map[string]int)
 
 	type edgeAcc struct {
-		edge      model.TopologyEdge
-		protoSet  map[string]bool
-		portSet   map[uint16]bool
-		rtts      []float64
+		edge          model.TopologyEdge
+		protoSet      map[string]bool
+		portSet       map[uint16]bool
+		rtts          []float64
+		txBytes       uint64
+		rxBytes       uint64
+		txPkts        uint64
+		rxPkts        uint64
+		prevRetrans   uint64
+		baselineAvail bool
+		engine        model.TelemetryEngineMode
 	}
 	edgeMap := make(map[string]*edgeAcc)
 
@@ -645,6 +690,16 @@ func (s *Store) BuildTopology(granularity string, windowSec int, namespaces []st
 		ea.edge.Retransmits += f.Retransmits
 		ea.edge.Resets += f.Resets
 		ea.edge.FlowCount++
+		ea.txBytes += f.TxBytes
+		ea.rxBytes += f.RxBytes
+		ea.txPkts += f.PacketsTotal
+		ea.prevRetrans += f.PrevRetransmits
+		if f.BaselineAvailable {
+			ea.baselineAvail = true
+		}
+		if f.Engine != "" {
+			ea.engine = f.Engine
+		}
 		if f.CrossNode {
 			ea.edge.CrossNode = true
 		}
@@ -715,6 +770,12 @@ func (s *Store) BuildTopology(granularity string, windowSec int, namespaces []st
 		ea.edge.LatencyAvgMs, ea.edge.LatencyP95Ms = calcLatencyStats(ea.rtts)
 		ea.edge.LatencyMaxMs = round2(ea.edge.LatencyMaxMs)
 		ea.edge.Health = classifyFlowHealth(ea.edge.LatencyAvgMs, ea.edge.Retransmits, ea.edge.Resets)
+		ea.edge.WindowSec = windowSec
+		ea.edge.PrevRetransmits = ea.prevRetrans
+		ea.edge.BaselineAvailable = ea.baselineAvail
+		ea.edge.RetransmitPerMB, ea.edge.EstRetransmitRatePct, ea.edge.RateNote, ea.edge.RetransmitDeltaPct, ea.edge.AnomalyScore, ea.edge.AnomalyReasons = computeAnomalyMetrics(
+			ea.edge.Retransmits, ea.edge.Resets, ea.txBytes, ea.rxBytes, ea.txPkts, ea.rxPkts, ea.edge.LatencyAvgMs, ea.engine, windowSec, ea.prevRetrans, ea.baselineAvail,
+		)
 		if ea.edge.Health == "warning" {
 			warnEdges++
 		} else if ea.edge.Health == "critical" {
@@ -859,4 +920,93 @@ func classifyFlowHealth(avgLatMs float64, retrans, resets uint64) string {
 
 func round2(v float64) float64 {
 	return math.Round(v*100) / 100
+}
+
+// computeAnomalyMetrics computes honest retransmit density, optional estimated ratio, previous-window delta,
+// and an anomaly ranking score so the UI can distinguish "high-volume baseline traffic" from "newly degraded links".
+func computeAnomalyMetrics(
+	retransmits, resets, txBytes, rxBytes, txPkts, rxPkts uint64,
+	avgLatMs float64,
+	engine model.TelemetryEngineMode,
+	windowSec int,
+	prevRetrans uint64,
+	baselineAvail bool,
+) (retPerMB float64, estRatePct *float64, rateNote string, deltaPct *float64, anomalyScore float64, reasons []string) {
+	totalBytes := txBytes + rxBytes
+	if totalBytes >= 1024 && retransmits > 0 {
+		mb := float64(totalBytes) / (1024.0 * 1024.0)
+		if mb > 0 {
+			retPerMB = round2(float64(retransmits) / mb)
+		}
+	}
+
+	// Only compute a retransmit ratio when the denominator is meaningful, and clearly label its basis
+	if retransmits > 0 {
+		if engine != model.TelemetryEBPF && txPkts >= 20 {
+			pct := round2(float64(retransmits) * 100.0 / float64(txPkts+retransmits))
+			estRatePct = &pct
+			rateNote = "基于 tcp_info 发送段统计"
+		} else {
+			estSegs := txPkts
+			if bySegs := (txBytes + 1459) / 1460; bySegs > estSegs {
+				estSegs = bySegs
+			}
+			if totalSegs := (totalBytes + 1459) / 1460; estSegs < 20 && totalSegs >= 20 {
+				estSegs = totalSegs
+			}
+			if estSegs >= 20 {
+				pct := round2(float64(retransmits) * 100.0 / float64(estSegs+retransmits))
+				estRatePct = &pct
+				rateNote = "按发送字节/1460B 估算"
+			} else {
+				rateNote = "样本包量较小，仅参考次数与基线"
+			}
+		}
+	}
+
+	winLabel := fmt.Sprintf("%dm", windowSec/60)
+	if windowSec < 60 {
+		winLabel = fmt.Sprintf("%ds", windowSec)
+	}
+
+	if baselineAvail && retransmits > 0 {
+		if prevRetrans > 0 {
+			d := round2((float64(retransmits) - float64(prevRetrans)) * 100.0 / float64(prevRetrans))
+			deltaPct = &d
+			if d >= 50 {
+				reasons = append(reasons, fmt.Sprintf("近 %s 重传 %d 次（较前 %s 恶化 +%.0f%%）", winLabel, retransmits, winLabel, d))
+				anomalyScore += 40 + math.Min(d/5.0, 40)
+			} else if d <= -30 {
+				reasons = append(reasons, fmt.Sprintf("近 %s 重传 %d 次（较前 %s 回落 %.0f%%）", winLabel, retransmits, winLabel, d))
+				anomalyScore += 10
+			} else {
+				reasons = append(reasons, fmt.Sprintf("近 %s 重传 %d 次（与前 %s 持平，前窗 %d 次）", winLabel, retransmits, winLabel, prevRetrans))
+				anomalyScore += 18
+			}
+		} else {
+			reasons = append(reasons, fmt.Sprintf("近 %s 新增重传 %d 次（前 %s 为 0）", winLabel, retransmits, winLabel))
+			anomalyScore += 45 + math.Min(float64(retransmits)*1.5, 35)
+		}
+	} else if retransmits > 0 {
+		reasons = append(reasons, fmt.Sprintf("近 %s 重传 %d 次（首窗无前段基线）", winLabel, retransmits))
+		anomalyScore += 20 + math.Min(math.Log2(float64(retransmits)+1)*8, 35)
+	}
+
+	if resets > 0 {
+		reasons = append(reasons, fmt.Sprintf("出现 %d 次 TCP RST 重置", resets))
+		anomalyScore += 30 + math.Min(float64(resets)*5, 30)
+	}
+	if avgLatMs > 100 {
+		reasons = append(reasons, fmt.Sprintf("平均 RTT 显著偏高 (%.1f ms)", avgLatMs))
+		anomalyScore += 30
+	} else if avgLatMs > 25 {
+		reasons = append(reasons, fmt.Sprintf("平均 RTT 偏高 (%.1f ms)", avgLatMs))
+		anomalyScore += 14
+	}
+	if estRatePct != nil && *estRatePct >= 2.0 {
+		anomalyScore += math.Min(*estRatePct*4, 25)
+	}
+
+	anomalyScore = round2(anomalyScore)
+	return
 }

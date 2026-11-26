@@ -42,6 +42,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/api/dataplane/host", s.handleHostDataplane)
 	mux.HandleFunc("/api/dataplane/pod", s.handlePodDataplane)
+	mux.HandleFunc("/api/dataplane/pod-sockets", s.handlePodSockets)
 	mux.HandleFunc("/api/dataplane/kubeproxy", s.handleKubeProxyLookup)
 	mux.HandleFunc("/api/dataplane/kernel-audit", s.handleKernelAudit)
 	mux.HandleFunc("/api/dataplane/routes", s.handleHostRoutes)
@@ -128,6 +129,21 @@ func (s *Server) handlePodDataplane(w http.ResponseWriter, r *http.Request) {
 		"hostRouteToPod": hostRoute,
 		"policyChains":   dataplane.InspectCalicoPolicyChains(veth),
 		"error":          errStr,
+	})
+}
+
+func (s *Server) handlePodSockets(w http.ResponseWriter, r *http.Request) {
+	podUID := r.URL.Query().Get("uid")
+	podIP := r.URL.Query().Get("ip")
+	hostNet := r.URL.Query().Get("hostNetwork") == "true"
+	sockets, err := dataplane.InspectPodListeningSockets(podUID, podIP, hostNet)
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"sockets": sockets,
+		"error":   errStr,
 	})
 }
 

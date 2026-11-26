@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"fmt"
 	"net"
 	"strings"
 
@@ -120,15 +121,18 @@ type RawBGPPeer struct {
 
 // RawCalicoPolicy holds Calico NetworkPolicy or GlobalNetworkPolicy fields.
 type RawCalicoPolicy struct {
-	Global      bool
-	Namespace   string
-	Name        string
-	Tier        string
-	Order       *float64
-	Selector    string
-	PolicyTypes []string
-	IngressCnt  int
-	EgressCnt   int
+	Global           bool
+	Namespace        string
+	Name             string
+	Tier             string
+	Order            *float64
+	Selector         string
+	PolicyTypes      []string
+	IngressCnt       int
+	EgressCnt        int
+	IngressSummaries []string
+	EgressSummaries  []string
+	ResourceVersion  string
 }
 
 // ClassifyEncapMode resolves a human-readable Calico encapsulation mode from IPPool fields.
@@ -336,12 +340,13 @@ func ParseBGPPeer(u *unstructured.Unstructured) RawBGPPeer {
 func ParseCalicoPolicy(u *unstructured.Unstructured, global bool) RawCalicoPolicy {
 	spec, _ := u.Object["spec"].(map[string]interface{})
 	p := RawCalicoPolicy{
-		Global:      global,
-		Namespace:   u.GetNamespace(),
-		Name:        u.GetName(),
-		Tier:        getString(spec, "tier"),
-		Selector:    getString(spec, "selector"),
-		PolicyTypes: getStringSlice(spec, "types"),
+		Global:          global,
+		Namespace:       u.GetNamespace(),
+		Name:            u.GetName(),
+		Tier:            getString(spec, "tier"),
+		Selector:        getString(spec, "selector"),
+		PolicyTypes:     getStringSlice(spec, "types"),
+		ResourceVersion: u.GetResourceVersion(),
 	}
 	if p.Tier == "" {
 		p.Tier = "default"
@@ -357,11 +362,82 @@ func ParseCalicoPolicy(u *unstructured.Unstructured, global bool) RawCalicoPolic
 	}
 	if ing, ok := spec["ingress"].([]interface{}); ok {
 		p.IngressCnt = len(ing)
+		for _, r := range ing {
+			if rm, ok := r.(map[string]interface{}); ok {
+				p.IngressSummaries = append(p.IngressSummaries, summarizeCalicoRule(rm))
+			}
+		}
 	}
 	if eg, ok := spec["egress"].([]interface{}); ok {
 		p.EgressCnt = len(eg)
+		for _, r := range eg {
+			if rm, ok := r.(map[string]interface{}); ok {
+				p.EgressSummaries = append(p.EgressSummaries, summarizeCalicoRule(rm))
+			}
+		}
+	}
+	if len(p.PolicyTypes) == 0 {
+		if p.IngressCnt > 0 {
+			p.PolicyTypes = append(p.PolicyTypes, "Ingress")
+		}
+		if p.EgressCnt > 0 {
+			p.PolicyTypes = append(p.PolicyTypes, "Egress")
+		}
+		if len(p.PolicyTypes) == 0 {
+			p.PolicyTypes = []string{"Ingress"}
+		}
 	}
 	return p
+}
+
+func summarizeCalicoRule(rm map[string]interface{}) string {
+	action := getString(rm, "action")
+	if action == "" {
+		action = "Allow"
+	}
+	proto := ""
+	if pv, ok := rm["protocol"]; ok && pv != nil {
+		proto = fmt.Sprintf("%v", pv)
+	}
+	parts := []string{action}
+	if proto != "" {
+		parts = append(parts, proto)
+	}
+	if src, ok := rm["source"].(map[string]interface{}); ok {
+		if s := summarizeCalicoEntity("from", src); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	if dst, ok := rm["destination"].(map[string]interface{}); ok {
+		if s := summarizeCalicoEntity("to", dst); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func summarizeCalicoEntity(dir string, ent map[string]interface{}) string {
+	var segs []string
+	if sel := getString(ent, "selector"); sel != "" {
+		segs = append(segs, fmt.Sprintf("selector(%s)", sel))
+	}
+	if nsel := getString(ent, "namespaceSelector"); nsel != "" {
+		segs = append(segs, fmt.Sprintf("ns(%s)", nsel))
+	}
+	if nets := getStringSlice(ent, "nets"); len(nets) > 0 {
+		segs = append(segs, fmt.Sprintf("nets(%s)", strings.Join(nets, ",")))
+	}
+	if rawPorts, ok := ent["ports"].([]interface{}); ok && len(rawPorts) > 0 {
+		var ps []string
+		for _, rp := range rawPorts {
+			ps = append(ps, fmt.Sprintf("%v", rp))
+		}
+		segs = append(segs, fmt.Sprintf("ports(%s)", strings.Join(ps, ",")))
+	}
+	if len(segs) == 0 {
+		return ""
+	}
+	return dir + " " + strings.Join(segs, " ")
 }
 
 func getString(m map[string]interface{}, key string) string {

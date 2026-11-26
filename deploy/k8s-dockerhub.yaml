@@ -17,7 +17,7 @@ metadata:
   name: calico-netdiag-readonly
 rules:
   - apiGroups: [""]
-    resources: ["nodes", "namespaces", "pods", "services", "endpoints", "configmaps"]
+    resources: ["nodes", "namespaces", "pods", "services", "endpoints", "configmaps", "events"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]

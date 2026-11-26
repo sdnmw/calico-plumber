@@ -1,10 +1,13 @@
 package dataplane
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
+	"sort"
+	"strconv"
 	"strings"
 
 	"calico-netdiag/pkg/agent/netns"
@@ -274,4 +277,126 @@ func InspectPodNetns(podUID, podIP string) (hostVeth, podIface, podMAC string, p
 		return nil
 	})
 	return hostVeth, podIface, podMAC, podMTU, routes, hostRoute, runErr
+}
+
+// InspectPodListeningSockets enters a Pod's netns (or reads host netns if hostNetwork) and parses
+// /proc/thread-self/net/{tcp,tcp6,udp,udp6} to return all actively listening sockets without needing ss/netstat.
+func InspectPodListeningSockets(podUID, podIP string, hostNetwork bool) ([]model.ListeningSocket, error) {
+	readAll := func() []model.ListeningSocket {
+		var out []model.ListeningSocket
+		seen := make(map[string]bool)
+		add := func(s model.ListeningSocket) {
+			k := fmt.Sprintf("%s|%s|%d", s.Protocol, s.LocalAddr, s.Port)
+			if !seen[k] {
+				seen[k] = true
+				out = append(out, s)
+			}
+		}
+		for _, spec := range []struct {
+			file  string
+			proto string
+			v6    bool
+			isUDP bool
+		}{
+			{"tcp", "TCP", false, false},
+			{"tcp6", "TCP6", true, false},
+			{"udp", "UDP", false, true},
+			{"udp6", "UDP6", true, true},
+		} {
+			raw, err := os.ReadFile("/proc/thread-self/net/" + spec.file)
+			if err != nil {
+				raw, err = os.ReadFile("/proc/self/net/" + spec.file)
+				if err != nil {
+					continue
+				}
+			}
+			for _, s := range parseProcNetListening(string(raw), spec.proto, spec.v6, spec.isUDP) {
+				add(s)
+			}
+		}
+		sort.Slice(out, func(i, j int) bool {
+			if out[i].Port != out[j].Port {
+				return out[i].Port < out[j].Port
+			}
+			return out[i].Protocol < out[j].Protocol
+		})
+		return out
+	}
+
+	if hostNetwork {
+		return readAll(), nil
+	}
+	info, err := netns.LocatePod(podUID, podIP)
+	if err != nil || info == nil {
+		return nil, fmt.Errorf("locate pod netns: %w", err)
+	}
+	var sockets []model.ListeningSocket
+	runErr := netns.RunInNetns(info.NetnsPath, func() error {
+		sockets = readAll()
+		return nil
+	})
+	return sockets, runErr
+}
+
+// parseProcNetListening parses Linux /proc/net/{tcp,tcp6,udp,udp6} lines for LISTEN sockets.
+func parseProcNetListening(content, proto string, v6, isUDP bool) []model.ListeningSocket {
+	var out []model.ListeningSocket
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		if i == 0 {
+			continue // header
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		state := strings.ToUpper(fields[3])
+		// TCP LISTEN = 0A; UDP unbound listener = 07
+		if !isUDP && state != "0A" {
+			continue
+		}
+		if isUDP && state != "07" {
+			continue
+		}
+		parts := strings.SplitN(fields[1], ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		port64, err := strconv.ParseInt(parts[1], 16, 32)
+		if err != nil || port64 <= 0 {
+			continue
+		}
+		addr := decodeProcNetIP(parts[0], v6)
+		loopback := addr == "127.0.0.1" || addr == "::1" || strings.HasPrefix(addr, "127.")
+		out = append(out, model.ListeningSocket{
+			Protocol:  proto,
+			LocalAddr: addr,
+			Port:      int(port64),
+			Loopback:  loopback,
+		})
+	}
+	return out
+}
+
+func decodeProcNetIP(hexStr string, v6 bool) string {
+	b, err := hex.DecodeString(hexStr)
+	if err != nil {
+		return hexStr
+	}
+	if !v6 && len(b) == 4 {
+		// Linux /proc/net/tcp stores IPv4 in little-endian host order on x86_64/arm64
+		return net.IPv4(b[3], b[2], b[1], b[0]).String()
+	}
+	if v6 && len(b) == 16 {
+		// Each 32-bit word is little-endian
+		var ip [16]byte
+		for w := 0; w < 4; w++ {
+			ip[w*4+0] = b[w*4+3]
+			ip[w*4+1] = b[w*4+2]
+			ip[w*4+2] = b[w*4+1]
+			ip[w*4+3] = b[w*4+0]
+		}
+		return net.IP(ip[:]).String()
+	}
+	return hexStr
 }

@@ -136,3 +136,129 @@ type HTTPProbeResponse struct {
 	Error            string              `json:"error,omitempty"`
 	Diagnosis        string              `json:"diagnosis"`
 }
+
+// ListeningSocket is an active LISTEN socket observed directly inside a Pod netns (/proc/net/tcp|tcp6|udp).
+type ListeningSocket struct {
+	Protocol  string `json:"protocol"`  // TCP, TCP6, UDP, UDP6
+	LocalAddr string `json:"localAddr"` // 0.0.0.0, 127.0.0.1, ::, ::1
+	Port      int    `json:"port"`
+	Loopback  bool   `json:"loopback"` // true if bound only to 127.0.0.1 / ::1
+}
+
+// ServiceMatchingPodInfo describes a Pod matched by a Service's selector (including unready pods & real listening sockets).
+type ServiceMatchingPodInfo struct {
+	Namespace        string            `json:"namespace"`
+	Name             string            `json:"name"`
+	IP               string            `json:"ip"`
+	NodeName         string            `json:"nodeName"`
+	Phase            string            `json:"phase"`
+	Ready            bool              `json:"ready"`
+	NotReadyReason   string            `json:"notReadyReason,omitempty"`
+	RestartCount     int32             `json:"restartCount"`
+	ContainerPorts   []string          `json:"containerPorts,omitempty"`
+	ListeningSockets []ListeningSocket `json:"listeningSockets,omitempty"`
+	SocketInspectErr string            `json:"socketInspectErr,omitempty"`
+	TargetPortMatch  string            `json:"targetPortMatch,omitempty"` // listening_all, listening_loopback_only, not_listening, unknown
+}
+
+// EndpointSliceBrief summarizes an EndpointSlice's addresses and conditions for empty/degraded backend diagnosis.
+type EndpointSliceBrief struct {
+	Name        string   `json:"name"`
+	AddressType string   `json:"addressType"`
+	Ports       []string `json:"ports"`
+	Endpoints   []struct {
+		Addresses   []string `json:"addresses"`
+		Ready       *bool    `json:"ready,omitempty"`
+		Serving     *bool    `json:"serving,omitempty"`
+		Terminating *bool    `json:"terminating,omitempty"`
+		TargetPod   string   `json:"targetPod,omitempty"`
+		NodeName    string   `json:"nodeName,omitempty"`
+	} `json:"endpoints"`
+}
+
+// ServiceInspectResponse answers "why are backends empty?" and "is the target Pod actually listening on targetPort?".
+type ServiceInspectResponse struct {
+	Namespace         string                   `json:"namespace"`
+	Name              string                   `json:"name"`
+	Type              string                   `json:"type"`
+	ClusterIP         string                   `json:"clusterIP"`
+	Selector          map[string]string        `json:"selector"`
+	Ports             []ServicePortMapping     `json:"ports"`
+	FocusPort         int                      `json:"focusPort,omitempty"`
+	MatchingPods      []ServiceMatchingPodInfo `json:"matchingPods"`
+	EndpointSlices    []EndpointSliceBrief     `json:"endpointSlices"`
+	Conclusion        string                   `json:"conclusion"`
+	EvidenceSource    string                   `json:"evidenceSource"` // "实际观测到"
+	NextStepHint      string                   `json:"nextStepHint"`
+}
+
+// ServicePortMapping maps a declared Service port to its targetPort.
+type ServicePortMapping struct {
+	Name       string `json:"name,omitempty"`
+	Port       int    `json:"port"`
+	TargetPort string `json:"targetPort"`
+	Protocol   string `json:"protocol"`
+}
+
+// CompareSourcesRequest compares reachability and applicable Calico/K8s policies between a probe Pod and a business Pod.
+type CompareSourcesRequest struct {
+	SrcNamespace    string `json:"srcNamespace"`
+	SrcPod          string `json:"srcPod"`
+	TargetNamespace string `json:"targetNamespace"`
+	TargetService   string `json:"targetService"`
+	TargetPort      int    `json:"targetPort"`
+	Protocol        string `json:"protocol"` // TCP
+}
+
+// PolicyAttributionItem describes one K8s or Calico NetworkPolicy affecting a source or destination Pod.
+type PolicyAttributionItem struct {
+	Source         string   `json:"source"`         // K8s NetworkPolicy, Calico NetworkPolicy, Calico GlobalNetworkPolicy
+	Namespace      string   `json:"namespace,omitempty"`
+	Name           string   `json:"name"`
+	Tier           string   `json:"tier,omitempty"`
+	Order          *float64 `json:"order,omitempty"`
+	Direction      string   `json:"direction"`      // Egress, Ingress
+	Selector       string   `json:"selector"`       // podSelector / Calico selector
+	RuleSummaries  []string `json:"ruleSummaries"`  // human-readable match conditions
+	EffectHint     string   `json:"effectHint"`     // allow_likely, restrict_possible, default_deny
+	EvidenceKind   string   `json:"evidenceKind"`   // "按配置推算"
+}
+
+// SourceProbeOutcome records live observed reachability from one source Pod to the target Service/backend.
+type SourceProbeOutcome struct {
+	Role           string                  `json:"role"` // probe, business
+	PodNamespace   string                  `json:"podNamespace"`
+	PodName        string                  `json:"podName"`
+	PodIP          string                  `json:"podIP"`
+	NodeName       string                  `json:"nodeName"`
+	PodLabels      map[string]string       `json:"podLabels,omitempty"`
+	ClusterIPOK    bool                    `json:"clusterIPOk"`
+	ClusterIPLatMs float64                 `json:"clusterIPLatencyMs"`
+	ClusterIPFail  string                  `json:"clusterIPFailure,omitempty"`
+	ClusterIPErr   string                  `json:"clusterIPError,omitempty"`
+	DirectPodOK    bool                    `json:"directPodOk"`
+	DirectPodLatMs float64                 `json:"directPodLatencyMs"`
+	DirectPodFail  string                  `json:"directPodFailure,omitempty"`
+	DirectPodErr   string                  `json:"directPodError,omitempty"`
+	EvidenceKind   string                  `json:"evidenceKind"` // "实际观测到"
+	EgressPolicies []PolicyAttributionItem `json:"egressPolicies"`
+}
+
+// CompareSourcesResponse presents side-by-side observed probes and config-inferred policies.
+type CompareSourcesResponse struct {
+	CheckedAt          time.Time               `json:"checkedAt"`
+	TargetService      string                  `json:"targetService"`
+	TargetClusterIP    string                  `json:"targetClusterIP"`
+	TargetPort         int                     `json:"targetPort"`
+	BackendPod         string                  `json:"backendPod,omitempty"`
+	BackendIP          string                  `json:"backendIP,omitempty"`
+	BackendNode        string                  `json:"backendNode,omitempty"`
+	BackendPort        int                     `json:"backendPort,omitempty"`
+	BackendLabels      map[string]string       `json:"backendLabels,omitempty"`
+	ProbeOutcome       SourceProbeOutcome      `json:"probeOutcome"`
+	BusinessOutcome    SourceProbeOutcome      `json:"businessOutcome"`
+	TargetIngressPols  []PolicyAttributionItem `json:"targetIngressPolicies"`
+	PolicyDiffSummary  string                  `json:"policyDiffSummary"`
+	Conclusion         string                  `json:"conclusion"`
+	RecommendedNext    string                  `json:"recommendedNext"`
+}

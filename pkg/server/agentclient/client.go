@@ -87,6 +87,38 @@ func (c *Client) GetPodDataplane(ctx context.Context, nodeName, podUID, podIP st
 	return &out, nil
 }
 
+func (c *Client) GetPodListeningSockets(ctx context.Context, nodeName, podUID, podIP string, hostNetwork bool) ([]model.ListeningSocket, error) {
+	base, err := c.AgentAddress(nodeName)
+	if err != nil {
+		return nil, err
+	}
+	hn := "false"
+	if hostNetwork {
+		hn = "true"
+	}
+	u := fmt.Sprintf("%s/api/dataplane/pod-sockets?uid=%s&ip=%s&hostNetwork=%s", base, url.QueryEscape(podUID), url.QueryEscape(podIP), hn)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Sockets []model.ListeningSocket `json:"sockets"`
+		Error   string                  `json:"error"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	if out.Error != "" {
+		return out.Sockets, fmt.Errorf("%s", out.Error)
+	}
+	return out.Sockets, nil
+}
+
 func (c *Client) GetKernelAudit(ctx context.Context, nodeName string) (*model.NodeKernelAudit, error) {
 	base, err := c.AgentAddress(nodeName)
 	if err != nil {

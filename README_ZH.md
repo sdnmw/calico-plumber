@@ -42,9 +42,11 @@
   - **模式二 — `Legacy`**：在不具备 BTF/eBPF 条件的老内核节点上自动平滑降级为 **Netlink Conntrack + Pod Netns `INET_DIAG` (`tcp_info`)** 混合采集，同一集群内异构内核节点无缝混部。
 - **零侵入单 Pod 深度排障与分层 TraceFlow**：Node Agent 通过宿主机进入目标 Pod 的 Network Namespace，**无需业务容器预装 `tcpdump`、`curl`、`nc` 或 `sh`**（完美兼容 `distroless` / `scratch` 镜像），支持实时抓包（`.pcap` 下载）、TCP 三次握手时序检测、HTTP/HTTPS 瀑布流探测，以及按「Node → 物理网卡 → OS 内核/用户态 → 虚拟交换/隧道 → 容器」垂直分层绘制并支持逐跳回放的多跳 TraceFlow。
 - **网络体检与一致性审计**：从 Calico 网络模式与 MTU 封装链路、Path MTU / DF 大包黑洞探测、BIRD BGP 邻居与 Expected vs Actual 三层路由一致性比对、二层 MAC/网关 ARP/Proxy ARP 邻居表，到 NAT 转发异常与底层 Conntrack / Sysctl 证据逐层排查。
-- **一键导出故障现场诊断包**：顶部导航栏、审计页与 TraceFlow 结论栏支持一键导出 `.zip` 诊断包（含零外链离线 `report.html` 与全量结构化 JSON 现场证据），方便跨团队工单流转与复盘。
+- **按症状排障与证据驱动下一步**：`Pod 排障` 默认提供业务症状入口（访问服务失败 / 偶发超时或变慢 / 只有跨节点访问失败），选定源工作负载与目标 Service 自动带入端口，也可一键切换专家工具（TCPdump / TCP / HTTP）；异常 Service 详情依据证据动态给出唯一最有价值的下一步（查看后端为何为空、直接读取 Pod Netns `/proc/net/tcp` 核对真实监听端口、追踪 Service 转发，或对比巡检探针与业务 Pod 路径并区分展示 `实际观测到` 与 `按配置推算` 的 Calico/K8s 策略）。
+- **异常优先拓扑与无损上下文返回**：`流量拓扑` 默认以 **「看异常连接」** 呈现（支持随时切换「全景视图」），左侧按重传同比基线变化、RST 与延迟排序，右侧仅展开选中连接及其上下游一跳；点进 TraceFlow 自动沿用五元组与时间窗，支持一键返回原拓扑视图。
+- **全局健康逐端口审计与偶发故障现场复测**：首页置顶可点击的一句话巡检判定，明确区分「跨节点双向连通」与「探针自身检查」，逐端口区分 `正常 / 连接被拒绝 / 等待超时 / 未测`；自动捕获并留存故障现场及周边 Pod/Endpoint/策略/BGP 变更时间轴，修复后一键 **「用相同条件复测」** 直观对比前后差异。
+- **一键导出故障现场诊断包**：顶部导航栏、审计页与 TraceFlow 结论栏支持一键导出 `.zip` 诊断包（含零外链离线 `report.html` 与 `01..08-*.json` 全量结构化现场与故障复测证据），方便跨团队工单流转与复盘。
 - **全维度 IPAM & 资产检索**：深度解析 `IPPool`、`IPAMBlock`、`BlockAffinity` CRD，提供节点级 IP 位图热力图（活跃 Pod / 隧道 IP / 跨节点借用 / 孤儿残留 / 空闲）与 `⌘K` 全局检索。
-- **全局网络健康巡检**：内置轻量 Probe DaemonSet，一键执行 Pod-Pod N×N 跨节点延迟矩阵、Pod-Node、Pod-SVC & CoreDNS 及全集群 Service ClusterIP vs 后端 Pod 穿透体检。
 - **内置 Hugo 技术文档**：Web 控制台右上角一键直达内置静态文档站（`/docs/`），涵盖实现原理、网络/性能影响评估与常见实战排障教程。
 
 ### 系统架构

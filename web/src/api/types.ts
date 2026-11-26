@@ -267,6 +267,15 @@ export interface EnrichedFlow {
   engine: string;
   health: 'healthy' | 'warning' | 'critical';
   lastSeen: string;
+  windowSec?: number;
+  prevRetransmits?: number;
+  retransmitDeltaPct?: number;
+  baselineAvailable?: boolean;
+  retransmitPerMB?: number;
+  estRetransmitRatePct?: number;
+  rateNote?: string;
+  anomalyScore?: number;
+  anomalyReasons?: string[];
 }
 
 export interface TopologyNode {
@@ -303,6 +312,15 @@ export interface TopologyEdge {
   flowCount: number;
   crossNode: boolean;
   health: 'healthy' | 'warning' | 'critical';
+  windowSec?: number;
+  prevRetransmits?: number;
+  retransmitDeltaPct?: number;
+  baselineAvailable?: boolean;
+  retransmitPerMB?: number;
+  estRetransmitRatePct?: number;
+  rateNote?: string;
+  anomalyScore?: number;
+  anomalyReasons?: string[];
   fiveTuples: EnrichedFlow[];
 }
 
@@ -476,15 +494,102 @@ export interface HTTPProbeResponse {
   diagnosis: string;
 }
 
+export interface HealthSummaryHeadline {
+  nodeCount: number;
+  crossNodeHealthy: number;
+  crossNodeTotal: number;
+  crossNodeConnected: boolean;
+  totalServices: number;
+  brokenServices: number;
+  degradedServices: number;
+  noEndpointServices: number;
+  needsAttention: boolean;
+  headlineText: string;
+}
+
+export interface BackendEndpointHealth {
+  podNamespace?: string;
+  podName?: string;
+  podIP: string;
+  nodeName?: string;
+  servicePort?: number;
+  targetPort: number;
+  protocol: string;
+  k8sReady: boolean;
+  probeState?: 'tested' | 'untested';
+  probeSource?: string;
+  probeOk: boolean;
+  latencyMs: number;
+  failureKind?: string;
+  failureLabel?: string;
+  error?: string;
+}
+
+export interface ServicePortHealth {
+  portName?: string;
+  servicePort: number;
+  protocol: string;
+  targetPort: string;
+  resolvedTargetPort: number;
+  probeSource: string;
+  probeSourcePod?: string;
+  probeSourceNode?: string;
+  probeState: 'tested' | 'untested';
+  untestedReason?: string;
+  clusterIPState: 'ok' | 'failed' | 'untested' | 'headless';
+  clusterIPLatencyMs?: number;
+  clusterIPFailure?: string;
+  clusterIPError?: string;
+  totalBackends: number;
+  readyBackends: number;
+  testedBackends: number;
+  reachableBackends: number;
+  failureKind?: string;
+  failureSummary: string;
+  status: 'healthy' | 'degraded' | 'broken' | 'no-endpoints' | 'untested';
+  diagnosis: string;
+  recommendedAction: 'inspect_empty_backends' | 'check_port_listening' | 'trace_service_dnat' | 'compare_policy_sources' | 'trace_normal';
+  backends: BackendEndpointHealth[];
+}
+
+export interface ServiceHealthItem {
+  namespace: string;
+  name: string;
+  type: string;
+  clusterIP: string;
+  ports: string[];
+  selector?: Record<string, string>;
+  probeSource?: string;
+  probeSourcePod?: string;
+  probeSourceNode?: string;
+  status: 'healthy' | 'degraded' | 'broken' | 'no-endpoints' | 'headless' | 'untested';
+  totalBackends: number;
+  readyBackends: number;
+  reachableBackends: number;
+  clusterIPReachable?: boolean;
+  clusterIPLatencyMs?: number;
+  clusterIPError?: string;
+  diagnosis: string;
+  recommendedAction?: 'inspect_empty_backends' | 'check_port_listening' | 'trace_service_dnat' | 'compare_policy_sources' | 'trace_normal';
+  portChecks?: ServicePortHealth[];
+  backends: BackendEndpointHealth[];
+}
+
 export interface GlobalHealthReport {
   checkedAt: string;
   durationMs: number;
   overallScore: number;
   overallStatus: 'healthy' | 'degraded' | 'critical';
+  summaryHeadline?: HealthSummaryHeadline;
   podToPod: {
     totalPairs: number;
     healthyPairs: number;
     failedPairs: number;
+    crossNodeTotal?: number;
+    crossNodeHealthy?: number;
+    crossNodeFailed?: number;
+    selfCheckTotal?: number;
+    selfCheckHealthy?: number;
     avgLatencyMs: number;
     maxLatencyMs: number;
     nodes: string[];
@@ -496,6 +601,7 @@ export interface GlobalHealthReport {
       dstPod: string;
       dstIP: string;
       sameNode: boolean;
+      selfCheck?: boolean;
       reachable: boolean;
       latencyMs: number;
       error?: string;
@@ -538,33 +644,7 @@ export interface GlobalHealthReport {
     degradedServices: number;
     brokenServices: number;
     noEndpointServices: number;
-    services: {
-      namespace: string;
-      name: string;
-      type: string;
-      clusterIP: string;
-      ports: string[];
-      status: 'healthy' | 'degraded' | 'broken' | 'no-endpoints' | 'headless';
-      totalBackends: number;
-      readyBackends: number;
-      reachableBackends: number;
-      clusterIPReachable?: boolean;
-      clusterIPLatencyMs?: number;
-      clusterIPError?: string;
-      diagnosis: string;
-      backends: {
-        podNamespace?: string;
-        podName?: string;
-        podIP: string;
-        nodeName?: string;
-        targetPort: number;
-        protocol: string;
-        k8sReady: boolean;
-        probeOk: boolean;
-        latencyMs: number;
-        error?: string;
-      }[];
-    }[];
+    services: ServiceHealthItem[];
   };
   infrastructure: {
     calicoNodesReady: number;
@@ -577,6 +657,169 @@ export interface GlobalHealthReport {
     borrowedIPCount: number;
     checks: { category: string; name: string; status: 'pass' | 'warn' | 'fail'; detail: string }[];
   };
+}
+
+// ===== Guided Service Inspection, Dual-Source Policy Comparison & Incidents =====
+
+export interface ListeningSocket {
+  protocol: string;
+  localAddr: string;
+  port: number;
+  loopback: boolean;
+}
+
+export interface ServiceInspectResponse {
+  namespace: string;
+  name: string;
+  type: string;
+  clusterIP: string;
+  selector?: Record<string, string>;
+  ports: { name?: string; port: number; targetPort: string; protocol: string }[];
+  focusPort?: number;
+  matchingPods: {
+    namespace: string;
+    name: string;
+    ip: string;
+    nodeName: string;
+    phase: string;
+    ready: boolean;
+    notReadyReason?: string;
+    restartCount: number;
+    containerPorts?: string[];
+    listeningSockets?: ListeningSocket[];
+    socketInspectErr?: string;
+    targetPortMatch?: 'listening_all' | 'listening_loopback_only' | 'not_listening' | 'unknown';
+  }[];
+  endpointSlices: {
+    name: string;
+    addressType: string;
+    ports: string[];
+    endpoints: {
+      addresses: string[];
+      ready?: boolean;
+      serving?: boolean;
+      terminating?: boolean;
+      targetPod?: string;
+      nodeName?: string;
+    }[];
+  }[];
+  conclusion: string;
+  evidenceSource: string;
+  nextStepHint: string;
+}
+
+export interface PolicyAttributionItem {
+  source: string;
+  namespace?: string;
+  name: string;
+  tier?: string;
+  order?: number;
+  direction: 'Egress' | 'Ingress';
+  selector: string;
+  ruleSummaries: string[];
+  effectHint: 'allow_likely' | 'restrict_possible' | 'default_deny';
+  evidenceKind: string; // "按配置推算"
+}
+
+export interface SourceProbeOutcome {
+  role: 'probe' | 'business';
+  podNamespace: string;
+  podName: string;
+  podIP: string;
+  nodeName: string;
+  podLabels?: Record<string, string>;
+  clusterIPOk: boolean;
+  clusterIPLatencyMs: number;
+  clusterIPFailure?: string;
+  clusterIPError?: string;
+  directPodOk: boolean;
+  directPodLatencyMs: number;
+  directPodFailure?: string;
+  directPodError?: string;
+  evidenceKind: string; // "实际观测到"
+  egressPolicies?: PolicyAttributionItem[];
+}
+
+export interface CompareSourcesResponse {
+  checkedAt: string;
+  targetService: string;
+  targetClusterIP: string;
+  targetPort: number;
+  backendPod?: string;
+  backendIP?: string;
+  backendNode?: string;
+  backendPort?: number;
+  backendLabels?: Record<string, string>;
+  probeOutcome: SourceProbeOutcome;
+  businessOutcome: SourceProbeOutcome;
+  targetIngressPolicies?: PolicyAttributionItem[];
+  policyDiffSummary: string;
+  conclusion: string;
+  recommendedNext: string;
+}
+
+export interface ClusterChangeEvent {
+  timestamp: string;
+  category: 'pod_rebuild' | 'endpoint_change' | 'policy_change' | 'bgp_change' | 'k8s_event';
+  severity: 'info' | 'warning' | 'critical';
+  namespace?: string;
+  object: string;
+  summary: string;
+}
+
+export interface IncidentRetestRecord {
+  testedAt: string;
+  probeSource: string;
+  clusterIPOk: boolean;
+  clusterIPLatencyMs?: number;
+  clusterIPFailure?: string;
+  directBackendOk: boolean;
+  directLatencyMs?: number;
+  directFailure?: string;
+  currentBackends?: string[];
+  verdict: 'recovered' | 'still_failing' | 'partial_improved';
+  verdictText: string;
+  diff: {
+    statusBefore: string;
+    statusAfter: string;
+    failureBefore: string;
+    failureAfter: string;
+    latencyBefore: number;
+    latencyAfter: number;
+    backendsAdded?: string[];
+    backendsRemoved?: string[];
+    changesSummary: string[];
+  };
+}
+
+export interface IncidentSnapshot {
+  id: string;
+  key: string;
+  title: string;
+  kind: 'service_port' | 'flow_anomaly' | 'traceflow';
+  status: 'active' | 'recovered' | 'intermittent';
+  firstSeenAt: string;
+  lastSeenAt: string;
+  failureCount: number;
+  srcNamespace?: string;
+  srcPod?: string;
+  srcNode?: string;
+  targetNamespace?: string;
+  targetService?: string;
+  targetClusterIP?: string;
+  targetBackendPod?: string;
+  targetBackendIP?: string;
+  targetBackendNode?: string;
+  servicePort?: number;
+  backendPort?: number;
+  protocol: string;
+  initialResult: string;
+  failureKind?: string;
+  failureSummary: string;
+  initialLatencyMs?: number;
+  initialBackends?: string[];
+  timeline?: ClusterChangeEvent[];
+  retests?: IncidentRetestRecord[];
 }
 
 // ===== Kernel / Conntrack / NAT / MTU Audit =====

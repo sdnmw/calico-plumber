@@ -2,16 +2,19 @@ import type {
   ClusterKernelAuditReport,
   ClusterNetworkOverview,
   ClusterRouteAuditReport,
+  CompareSourcesResponse,
   EnrichedFlow,
   GlobalHealthReport,
   HTTPProbeResponse,
   IPAMSnapshot,
+  IncidentSnapshot,
   PMTUDProbeRequest,
   PMTUDProbeResult,
   PodBrief,
   PodNetworkDetail,
   SearchResultItem,
   ServiceBrief,
+  ServiceInspectResponse,
   TCPHandshakeResponse,
   TopologyGraph,
   TraceFlowRequest,
@@ -156,6 +159,57 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
+    }),
+
+  inspectService: (namespace: string, name: string, port?: number) => {
+    const p = new URLSearchParams({ namespace, name });
+    if (port && port > 0) p.set('port', String(port));
+    return fetchJSON<ServiceInspectResponse>(`/api/v1/diag/service-inspect?${p}`);
+  },
+
+  compareSources: (req: {
+    srcNamespace: string;
+    srcPod: string;
+    targetNamespace: string;
+    targetService: string;
+    targetPort?: number;
+    protocol?: string;
+  }) =>
+    fetchJSON<CompareSourcesResponse>('/api/v1/diag/compare-sources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }),
+
+  listIncidents: () =>
+    fetchJSON<{ total: number; incidents: IncidentSnapshot[] }>('/api/v1/incidents').then((r) => r.incidents || []),
+
+  createIncident: (req: {
+    title?: string;
+    kind?: string;
+    srcNamespace?: string;
+    srcPod?: string;
+    targetNamespace?: string;
+    targetService?: string;
+    targetClusterIP?: string;
+    targetBackendPod?: string;
+    targetBackendIP?: string;
+    servicePort?: number;
+    backendPort?: number;
+    protocol?: string;
+    failureKind?: string;
+    failureSummary: string;
+    initialLatencyMs?: number;
+  }) =>
+    fetchJSON<IncidentSnapshot>('/api/v1/incidents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    }),
+
+  retestIncident: (id: string) =>
+    fetchJSON<IncidentSnapshot>(`/api/v1/incidents/retest?id=${encodeURIComponent(id)}`, {
+      method: 'POST',
     }),
 
   getBundleExportUrl: (opts?: { traceId?: string; pod?: string }) => {

@@ -56,21 +56,22 @@ kubectl -n calico-netdiag set env ds/calico-netdiag-agent TELEMETRY_MODE=auto
    - 报文到达目标 `Host NIC` 但未进入目标 `cali* veth` → 检查目标 Pod 的 Ingress NetworkPolicy；
    - 返回黄色 `RESET` → 网络完全打通，目标容器进程未监听对应端口。
 
-### 场景二：访问 Service ClusterIP 失败，如何区分 kube-proxy 还是后端应用故障？
+### 场景二：访问 Service ClusterIP 失败，如何精确判断到「谁访问哪个端口」？
 
-1. 进入 **全局健康** → 下方 **全集群 Service & 后端 Endpoint 健康审计**，筛选 `broken` 或 `degraded`。
-2. 展开目标 Service 行，直接对比两列实测结果：
-   - **后端 Pod TCP 可达，但 ClusterIP 失败** → 明确为 `kube-proxy`（iptables/IPVS 规则）异常；
-   - **后端 Pod TCP 也失败** → 后端应用进程异常、端口映射错误或目标策略阻断；
-   - **状态为 `no-endpoints`** → Service Selector 标签与 Pod 标签不匹配，或 Pod ReadinessProbe 未就绪。
-3. 点击该行右侧 **TraceFlow**，可在泳道中直接查看 `kube-proxy` 命中的 `KUBE-SVC-*` / `IPVS` 规则及 DNAT 转发后的真实后端 Pod IP。
+1. 进入 **全局健康**：页面顶部第一行以一句可读结论概括跨节点探针连通性与全集群 Service 异常数量，点击 **「查看失败服务」** 直接定位故障列表。
+2. 展开目标 Service 行，查看**逐端口探测明细**（每一声明端口各占一行，列清探测来源、Service 端口、映射后端端口、ClusterIP 结果、直连后端结果与具体失败表现 `连接被拒绝` / `等待超时` / `未测`）。
+3. 点击该行依据证据动态生成的**唯一推荐下一步**按钮：
+   - **Service 无后端 (`no-endpoints`)** → 点击 **「查看后端为什么为空」**，直接检查 Selector 标签匹配、Pod NotReady 原因及 EndpointSlice 原始记录；
+   - **后端 Ready 但端口连接失败** → 点击 **「核对目标端口与监听状态」**，无需在业务容器安装任何工具，由 Agent 直接读取 Pod Netns `/proc/net/tcp` 返回容器内真实监听端口；
+   - **直连后端成功但 ClusterIP 失败** → 点击 **「追踪这次 Service 转发」**，发起 TraceFlow 查看 `kube-proxy` DNAT 规则；
+   - **探针正常但业务 Pod 失败** → 点击 **「对比双来源路径与策略」**，同屏并排对比「实际观测到」的探测结果与「按配置推算」的 Calico / K8s Egress & Ingress 策略。
+4. 若为偶发故障，可在下方 **「偶发故障现场留存与复测对比」** 中查看自动捕获的故障时间轴（含 Pod 重建、EndpointSlice 变更、策略变化与 BGP 波动），修复后点击 **「用相同条件复测」** 直接对比前后差异。
 
 ### 场景三：定位集群内异常 TCP 重传、RST 或调用慢链路
 
-1. 进入 **流量拓扑**，在左上角选择需要排查的 Namespace（系统会自动切换为清晰的 **Workload** 粒度），时间窗口选择 `5m` 或 `15m`。
-2. 优先关注**橙色（警告）**与**红色（异常）**连线，点击连线上的标签胶囊打开右侧 **五元组连接明细抽屉**。
-3. 查看该链路的实时吞吐、Avg/P95 延迟以及具体的重传/RST 次数和精确五元组（`SrcIP:Port → DstIP:Port`）。
-4. 直接点击抽屉内单条五元组右侧的 **Trace** 或 **抓包**，无缝定位根因。
+1. 进入 **流量拓扑**：默认打开 **「看异常连接」** 视图（也可随时一键切换 **「全景视图」**）。
+2. 左侧列表按重传变化、RST 与延迟自动排序，展示窗口内重传次数、与前一等长窗口的对比基线以及标注口径的估算重传率；右侧画布仅展开**选中连接及其上下游一跳**，避免大图缩放难以阅读。
+3. 点击 **「TraceFlow（保留当前窗口）」** 可直接沿用该异常流的源、目标、协议和端口，排查完毕后点击 TraceFlow 顶部 **「← 返回拓扑」** 无损回到原窗口与选中连接；也可点击 **「留存现场」** 将异常快照固化至故障复测列表。
 
 ### 场景四：业务容器是 distroless 无 Shell 镜像，如何实时抓包并用 Wireshark 分析？
 

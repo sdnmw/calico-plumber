@@ -23,6 +23,7 @@ type BundleInput struct {
 	TraceFlowHistory []model.TraceFlowResult
 	FocusTrace       *model.TraceFlowResult
 	FocusPod         *model.PodNetworkDetail
+	Incidents        []model.IncidentSnapshot
 }
 
 // BuildDiagnosticBundleZip creates an in-memory zip archive containing a self-contained offline HTML report,
@@ -93,6 +94,12 @@ func BuildDiagnosticBundleZip(in BundleInput) ([]byte, string, error) {
 	}
 	if in.FocusPod != nil {
 		if err := addZipJSON(zw, "07-pod-detail.json", in.FocusPod); err != nil {
+			_ = zw.Close()
+			return nil, "", err
+		}
+	}
+	if len(in.Incidents) > 0 {
+		if err := addZipJSON(zw, "08-incidents.json", in.Incidents); err != nil {
 			_ = zw.Close()
 			return nil, "", err
 		}

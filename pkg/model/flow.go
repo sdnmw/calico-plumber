@@ -85,6 +85,15 @@ type EnrichedFlow struct {
 	Engine        TelemetryEngineMode `json:"engine"`
 	Health        string              `json:"health"` // healthy, warning, critical
 	LastSeen      time.Time           `json:"lastSeen"`
+	WindowSec     int                 `json:"windowSec,omitempty"`
+	PrevRetransmits      uint64       `json:"prevRetransmits,omitempty"`
+	RetransmitDeltaPct   *float64     `json:"retransmitDeltaPct,omitempty"`
+	BaselineAvailable    bool         `json:"baselineAvailable"`
+	RetransmitPerMB      float64      `json:"retransmitPerMB,omitempty"`
+	EstRetransmitRatePct *float64     `json:"estRetransmitRatePct,omitempty"`
+	RateNote             string       `json:"rateNote,omitempty"`
+	AnomalyScore         float64      `json:"anomalyScore,omitempty"`
+	AnomalyReasons       []string     `json:"anomalyReasons,omitempty"`
 }
 
 // TopologyGraph is returned by /api/v1/topology for React Flow rendering.
@@ -145,5 +154,14 @@ type TopologyEdge struct {
 	FlowCount      int            `json:"flowCount"`
 	CrossNode      bool           `json:"crossNode"`
 	Health         string         `json:"health"` // healthy, warning, critical
+	WindowSec      int            `json:"windowSec,omitempty"`
+	PrevRetransmits      uint64   `json:"prevRetransmits,omitempty"`
+	RetransmitDeltaPct   *float64 `json:"retransmitDeltaPct,omitempty"`
+	BaselineAvailable    bool     `json:"baselineAvailable"`
+	RetransmitPerMB      float64  `json:"retransmitPerMB,omitempty"`
+	EstRetransmitRatePct *float64 `json:"estRetransmitRatePct,omitempty"`
+	RateNote             string   `json:"rateNote,omitempty"`
+	AnomalyScore         float64  `json:"anomalyScore,omitempty"`
+	AnomalyReasons       []string `json:"anomalyReasons,omitempty"`
 	FiveTuples     []EnrichedFlow `json:"fiveTuples"`
 }

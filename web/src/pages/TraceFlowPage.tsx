@@ -21,11 +21,15 @@ import type { NodeNetworkStatus, PodBrief, ServiceBrief, TraceFlowRequest, Trace
 import { EncapBadge, SectionCard, StatusPill } from '../components/common/Badges';
 import { LayeredTraceTopology } from '../components/traceflow/LayeredTraceTopology';
 
+import type { TopologyContextSnapshot } from '../App';
+
 interface TraceFlowPageProps {
   initialReq?: Partial<TraceFlowRequest> | null;
+  returnTopologyCtx?: TopologyContextSnapshot | null;
+  onReturnTopology?: () => void;
 }
 
-export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
+export function TraceFlowPage({ initialReq, returnTopologyCtx, onReturnTopology }: TraceFlowPageProps) {
   const [pods, setPods] = useState<PodBrief[]>([]);
   const [services, setServices] = useState<ServiceBrief[]>([]);
   const [nodeDetails, setNodeDetails] = useState<NodeNetworkStatus[]>([]);
@@ -258,19 +262,29 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
             真实进入源 Pod Netns 注入唯一特征报文，并在源/目的双节点各关键接口（eth0 / cali* veth / kube-proxy NAT / tunl0 / vxlan.calico / 物理网卡）实时抓包观测，精准定位丢包跳点
           </p>
         </div>
-        {result && (
-          <button
-            onClick={() => {
-              setResult(null);
-              setSelectedHop(null);
-              setPlayTrigger(0);
-              setIsPlayingFlow(false);
-            }}
-            className="px-2.5 py-1 rounded-lg border border-[#E9E1D6] dark:border-[#2E2721] bg-white dark:bg-[#1C1815] text-xs text-[#574D44] dark:text-[#D5C9BC] hover:border-[#F08C18] hover:text-[#9E4A05] transition"
-          >
-            快速场景首页
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {returnTopologyCtx && onReturnTopology && (
+            <button
+              onClick={onReturnTopology}
+              className="px-2.5 py-1 rounded-lg border border-[#FAD4A1] bg-[#FFF4E4] text-xs font-semibold text-[#9E4A05] hover:bg-[#FDE6C4] dark:border-[#F08C18]/40 dark:bg-[#F08C18]/15 dark:text-[#FBB040] transition"
+            >
+              ← 返回拓扑（保留最近 {returnTopologyCtx.windowSec >= 60 ? `${Math.round(returnTopologyCtx.windowSec / 60)}m` : `${returnTopologyCtx.windowSec}s`} 窗口）
+            </button>
+          )}
+          {result && (
+            <button
+              onClick={() => {
+                setResult(null);
+                setSelectedHop(null);
+                setPlayTrigger(0);
+                setIsPlayingFlow(false);
+              }}
+              className="px-2.5 py-1 rounded-lg border border-[#E9E1D6] dark:border-[#2E2721] bg-white dark:bg-[#1C1815] text-xs text-[#574D44] dark:text-[#D5C9BC] hover:border-[#F08C18] hover:text-[#9E4A05] transition"
+            >
+              快速场景首页
+            </button>
+          )}
+        </div>
       </div>
 
       {/* TraceFlow Config Builder Bar */}
