@@ -119,17 +119,17 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
     <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-xl font-bold tracking-tight text-[#201B18] dark:text-[#F5F0EA]">
             全局网络健康体检中心
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-[#8C7F73] dark:text-[#A39587] mt-1">
             最近巡检：{new Date(report.checkedAt).toLocaleString()}（耗时 {report.durationMs} ms）· 覆盖 Pod-Pod 网格、Pod-Node、CoreDNS/SVC 及全集群 Service 后端穿透探测
           </p>
         </div>
         <button
           onClick={runNow}
           disabled={running}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold shadow-sm"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#F08C18] hover:bg-[#D9720B] disabled:opacity-50 text-white text-xs font-semibold shadow-sm transition"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${running ? 'animate-spin' : ''}`} />
           {running ? '全量体检中...' : '立即全量巡检'}
@@ -138,13 +138,13 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
 
       {/* Top Health Score + 5 KPI Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
-        <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+        <div className="p-4 rounded-xl bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] flex items-center gap-4">
           <div className={`w-16 h-16 rounded-full border-4 flex flex-col items-center justify-center shrink-0 ${scoreColor}`}>
             <span className="text-xl font-bold leading-none">{report.overallScore}</span>
             <span className="text-[9px] uppercase font-semibold mt-0.5">Score</span>
           </div>
           <div>
-            <div className="text-xs text-slate-500">集群网络健康分</div>
+            <div className="text-xs text-[#8C7F73]">集群网络健康分</div>
             <div className="mt-1"><StatusPill status={report.overallStatus} /></div>
           </div>
         </div>
@@ -380,17 +380,17 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
               value={svcSearch}
               onChange={(e) => setSvcSearch(e.target.value)}
               placeholder="搜索 Service / IP..."
-              className="px-2.5 py-1 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none"
+              className="px-2.5 py-1 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] outline-none"
             />
-            <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px]">
+            <div className="inline-flex rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] p-0.5 text-[11px] border border-[#E9E1D6] dark:border-[#2E2721]">
               {(['all', 'abnormal', 'broken', 'degraded', 'no-endpoints', 'healthy'] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setSvcFilter(f)}
                   className={`px-2 py-0.5 rounded font-medium ${
                     svcFilter === f
-                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-                      : 'text-slate-500'
+                      ? 'bg-[#FFF4E4] dark:bg-[#F08C18]/20 text-[#9E4A05] dark:text-[#FBB040] font-semibold shadow-sm'
+                      : 'text-[#8C7F73]'
                   }`}
                 >
                   {f === 'all' ? '全部' : f === 'abnormal' ? `仅异常 (${abnormalSvcCount})` : f}
@@ -467,7 +467,7 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
                                 dstName: svc.name,
                               })
                             }
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 text-[11px] font-medium"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] hover:bg-[#FDE6C4] dark:bg-[#F08C18]/15 dark:text-[#FBB040] dark:border-[#F08C18]/40 text-[11px] font-medium"
                           >
                             <Route className="w-3 h-3" /> TraceFlow
                           </button>
@@ -533,19 +533,19 @@ function HealthMiniCard({
   return (
     <div
       onClick={onClick}
-      className={`p-4 rounded-xl bg-white dark:bg-slate-900 border transition ${
+      className={`p-4 rounded-xl bg-white dark:bg-[#1C1815] border transition ${
         !ok
           ? 'border-rose-200 dark:border-rose-900/70 hover:border-rose-400 dark:hover:border-rose-600'
-          : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700'
+          : 'border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#F08C18] dark:hover:border-[#F08C18]/70'
       } ${onClick ? 'cursor-pointer hover:shadow-sm' : ''}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-slate-500">{title}</span>
+        <span className="text-xs text-[#8C7F73]">{title}</span>
         <span className={`w-2 h-2 rounded-full ${ok ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
       </div>
-      <div className="mt-1.5 text-lg font-bold font-mono text-slate-900 dark:text-white">{value}</div>
+      <div className="mt-1.5 text-lg font-bold font-mono text-[#201B18] dark:text-[#F5F0EA]">{value}</div>
       {subNode || (
-        <div className="mt-1 text-[11px] text-slate-500 truncate" title={sub}>
+        <div className="mt-1 text-[11px] text-[#8C7F73] truncate" title={sub}>
           {sub}
         </div>
       )}

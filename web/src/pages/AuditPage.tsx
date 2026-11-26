@@ -19,7 +19,6 @@ import {
   Server,
   ShieldAlert,
   SlidersHorizontal,
-  Terminal,
   XCircle,
 } from 'lucide-react';
 import { api } from '../api/client';
@@ -299,12 +298,12 @@ export function AuditPage() {
       {/* Page Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <Network className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <h1 className="text-lg font-bold tracking-tight text-[#201B18] dark:text-[#F5F0EA] flex items-center gap-2">
+            <Network className="w-5 h-5 text-[#F08C18]" />
             <span>路由 / ARP 状态</span>
             {kernelReport?.encapMode && <EncapBadge mode={kernelReport.encapMode} />}
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-[#8C7F73] dark:text-[#A39587] mt-0.5">
             围绕网络模式与 MTU、Calico BGP 邻居与三层路由、二层 MAC/ARP 与 NAT 状态逐层检测
           </p>
         </div>
@@ -313,7 +312,7 @@ export function AuditPage() {
           <button
             onClick={loadAll}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] hover:bg-[#FFF4E4] hover:text-[#9E4A05] hover:border-[#FAD4A1] dark:hover:bg-[#25201C] text-[#574D44] dark:text-[#D5C9BC] transition disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>重新体检</span>
@@ -321,7 +320,7 @@ export function AuditPage() {
           <a
             href={api.getBundleExportUrl()}
             download
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[#F08C18] hover:bg-[#D9720B] text-white shadow-sm transition"
           >
             <Download className="w-3.5 h-3.5" />
             <span>一键导出诊断包 (.zip)</span>
@@ -337,7 +336,7 @@ export function AuditPage() {
       )}
 
       {loading && !kernelReport && !routeReport && (
-        <div className="p-12 text-center text-xs text-slate-400">
+        <div className="p-12 text-center text-xs text-[#8C7F73]">
           正在并发采集各节点网络模式、BGP 邻居、路由表、ARP 邻居表及 NAT 状态...
         </div>
       )}
@@ -348,21 +347,21 @@ export function AuditPage() {
           {/* KPI 1: Calico Network Mode & MTU */}
           <button
             onClick={() => setSubTab('overview')}
-            className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-xl p-3.5 transition"
+            className="text-left bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#F08C18] dark:hover:border-[#F08C18]/70 rounded-xl p-3.5 transition"
           >
-            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-[#8C7F73]">
               <span>网络模式与 MTU</span>
-              <Layers className="w-3.5 h-3.5 text-blue-500" />
+              <Layers className="w-3.5 h-3.5 text-[#155A96] dark:text-[#7EB8E8]" />
             </div>
             <div className="mt-1.5 flex items-baseline justify-between gap-2">
-              <span className="text-base font-bold text-slate-900 dark:text-white truncate">
+              <span className="text-base font-bold text-[#201B18] dark:text-[#F5F0EA] truncate">
                 {modeProfile?.encapMode || kernelReport.encapMode}
               </span>
-              <span className="text-[11px] font-mono font-semibold text-blue-600 dark:text-blue-400 shrink-0">
+              <span className="text-[11px] font-mono font-semibold text-[#155A96] dark:text-[#7EB8E8] shrink-0">
                 开销 {modeProfile?.encapOverheadBytes ?? 0}B
               </span>
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 font-mono">
+            <div className="text-[11px] text-[#8C7F73] mt-1 font-mono">
               物理 {modeProfile?.physicalMTU || 1500}B → 容器 {modeProfile?.recommendedPodMTU || 1500}B
             </div>
           </button>
@@ -370,21 +369,21 @@ export function AuditPage() {
           {/* KPI 2: Calico BGP Neighbors & L3 Route Consistency */}
           <button
             onClick={() => setSubTab('routes')}
-            className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-xl p-3.5 transition"
+            className="text-left bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#F08C18] dark:hover:border-[#F08C18]/70 rounded-xl p-3.5 transition"
           >
-            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-[#8C7F73]">
               <span>BGP 邻居与三层路由</span>
               <GitCompareArrows className="w-3.5 h-3.5 text-emerald-500" />
             </div>
             <div className="mt-1.5 flex items-baseline justify-between gap-2">
-              <span className="text-base font-bold font-mono text-slate-900 dark:text-white">
+              <span className="text-base font-bold font-mono text-[#201B18] dark:text-[#F5F0EA]">
                 {bgpStats.total > 0 ? `${bgpStats.up}/${bgpStats.total} Established` : '无 BGP Peer'}
               </span>
               {routeReport && (
                 <StatusPill status={routeReport.totalDrifts === 0 ? 'healthy' : routeReport.overallStatus} compact />
               )}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">
+            <div className="text-[11px] text-[#8C7F73] mt-1">
               AS{modeProfile?.bgpASNumber || 64512} {modeProfile?.nodeToNodeMesh ? 'Full-Mesh' : 'RR'} · 路由偏差{' '}
               <b className={routeReport && routeReport.totalDrifts > 0 ? 'text-rose-600' : 'text-emerald-600'}>
                 {routeReport?.totalDrifts ?? 0}
@@ -395,14 +394,14 @@ export function AuditPage() {
           {/* KPI 3: L2 MAC / ARP & Calico Proxy ARP */}
           <button
             onClick={() => setSubTab('l2')}
-            className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-xl p-3.5 transition"
+            className="text-left bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#F08C18] dark:hover:border-[#F08C18]/70 rounded-xl p-3.5 transition"
           >
-            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-[#8C7F73]">
               <span>二层 MAC / ARP 邻居</span>
-              <Cable className="w-3.5 h-3.5 text-indigo-500" />
+              <Cable className="w-3.5 h-3.5 text-[#6C4824] dark:text-[#DFC4A6]" />
             </div>
             <div className="mt-1.5 flex items-baseline justify-between gap-2">
-              <span className="text-base font-bold text-slate-900 dark:text-white">
+              <span className="text-base font-bold text-[#201B18] dark:text-[#F5F0EA]">
                 {l2Summary.gwAllOk && l2Summary.failedArp === 0 ? '网关与节点可达' : `${l2Summary.failedArp} 项 ARP 异常`}
               </span>
               {l2Summary.gwAllOk && l2Summary.failedArp === 0 ? (
@@ -411,7 +410,7 @@ export function AuditPage() {
                 <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
               )}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 font-mono">
+            <div className="text-[11px] text-[#8C7F73] mt-1 font-mono">
               Proxy ARP {l2Summary.proxyArpOk}/{l2Summary.totalVeth} · ARP 缓存 {l2Summary.totalArp} 条
             </div>
           </button>
@@ -419,19 +418,19 @@ export function AuditPage() {
           {/* KPI 4: NAT Translation & Issue Drilldown */}
           <button
             onClick={() => setSubTab('overview')}
-            className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-xl p-3.5 transition"
+            className="text-left bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#F08C18] dark:hover:border-[#F08C18]/70 rounded-xl p-3.5 transition"
           >
-            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-[#8C7F73]">
               <span>NAT 转发与异常诊断</span>
-              <ShieldAlert className={`w-3.5 h-3.5 ${totalIssueCount > 0 ? 'text-amber-500' : 'text-emerald-500'}`} />
+              <ShieldAlert className={`w-3.5 h-3.5 ${totalIssueCount > 0 ? 'text-[#F08C18]' : 'text-emerald-500'}`} />
             </div>
             <div className="mt-1.5 flex items-baseline justify-between gap-2">
-              <span className="text-base font-bold text-slate-900 dark:text-white">
+              <span className="text-base font-bold text-[#201B18] dark:text-[#F5F0EA]">
                 {totalIssueCount === 0 ? '全平面健康' : `${totalIssueCount} 项待关注`}
               </span>
               <StatusPill status={kernelReport.overallStatus} compact />
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">
+            <div className="text-[11px] text-[#8C7F73] mt-1">
               SNAT 随机端口 {natSummary.randFullyCount}/{natSummary.totalNodes} · {modeProfile?.kubeProxyMode || 'iptables'} DNAT
             </div>
           </button>
@@ -439,13 +438,13 @@ export function AuditPage() {
       )}
 
       {/* 3 Sub-Navigation Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[#E9E1D6] dark:border-[#2E2721] pb-2.5">
         <button
           onClick={() => setSubTab('overview')}
           className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
             subTab === 'overview'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+              ? 'bg-[#F08C18] text-white shadow-sm'
+              : 'bg-white dark:bg-[#1C1815] text-[#574D44] dark:text-[#D5C9BC] border border-[#E9E1D6] dark:border-[#2E2721] hover:bg-[#FFF4E4] hover:text-[#9E4A05] dark:hover:bg-[#25201C]'
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
@@ -454,10 +453,10 @@ export function AuditPage() {
             <span
               className={`px-1.5 rounded-full text-[10px] font-mono ${
                 subTab === 'overview'
-                  ? 'bg-white/20 text-white'
+                  ? 'bg-white/25 text-white'
                   : kernelReport.criticalCount > 0
                     ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
-                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                    : 'bg-[#FFF4E4] text-[#9E4A05] dark:bg-[#F08C18]/20 dark:text-[#FBB040]'
               }`}
             >
               {kernelReport.findings.length}
@@ -469,8 +468,8 @@ export function AuditPage() {
           onClick={() => setSubTab('routes')}
           className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
             subTab === 'routes'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+              ? 'bg-[#F08C18] text-white shadow-sm'
+              : 'bg-white dark:bg-[#1C1815] text-[#574D44] dark:text-[#D5C9BC] border border-[#E9E1D6] dark:border-[#2E2721] hover:bg-[#FFF4E4] hover:text-[#9E4A05] dark:hover:bg-[#25201C]'
           }`}
         >
           <GitCompareArrows className="w-3.5 h-3.5" />
@@ -479,7 +478,7 @@ export function AuditPage() {
             <span
               className={`px-1.5 rounded-full text-[10px] font-mono ${
                 subTab === 'routes'
-                  ? 'bg-white/20 text-white'
+                  ? 'bg-white/25 text-white'
                   : routeReport.totalDrifts > 0
                     ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
                     : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
@@ -494,8 +493,8 @@ export function AuditPage() {
           onClick={() => setSubTab('l2')}
           className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
             subTab === 'l2'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+              ? 'bg-[#F08C18] text-white shadow-sm'
+              : 'bg-white dark:bg-[#1C1815] text-[#574D44] dark:text-[#D5C9BC] border border-[#E9E1D6] dark:border-[#2E2721] hover:bg-[#FFF4E4] hover:text-[#9E4A05] dark:hover:bg-[#25201C]'
           }`}
         >
           <Cable className="w-3.5 h-3.5" />
@@ -543,15 +542,15 @@ export function AuditPage() {
                   <ArrowRight className="w-4 h-4" />
                 </div>
 
-                <div className="md:col-span-2 p-3 rounded-xl border border-blue-200/80 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
-                  <div className="text-[10px] font-semibold uppercase text-blue-600 dark:text-blue-400">2. Calico 路由 / 封装层</div>
-                  <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
+                <div className="md:col-span-2 p-3 rounded-xl border border-[#C4DCF0] dark:border-[#4B84B8]/40 bg-[#EDF5FC]/70 dark:bg-[#155A96]/20">
+                  <div className="text-[10px] font-semibold uppercase text-[#155A96] dark:text-[#7EB8E8]">2. Calico 路由 / 封装层</div>
+                  <div className="text-sm font-bold text-[#201B18] dark:text-[#F5F0EA] mt-0.5 flex items-center gap-1.5">
                     <span>{modeProfile?.encapMode || kernelReport.encapMode}</span>
-                    <span className="text-[11px] font-mono font-normal text-blue-700 dark:text-blue-300">
+                    <span className="text-[11px] font-mono font-normal text-[#155A96] dark:text-[#7EB8E8]">
                       (封装头 +{modeProfile?.encapOverheadBytes ?? 0}B)
                     </span>
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
+                  <div className="text-[11px] text-[#574D44] dark:text-[#A39587] mt-0.5">
                     {modeProfile?.encapOverheadBytes === 0
                       ? '纯三层 BGP 路由直连，无隧道封装接口'
                       : `外层隧道封装，要求容器 MTU ≤ ${modeProfile?.recommendedPodMTU}B`}
@@ -667,68 +666,77 @@ export function AuditPage() {
                 <span>二层 MAC/ARP、Calico Proxy ARP、多层 MTU 与 NAT 转发全部正常，无异常项。</span>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {kernelReport.findings.map((f: AuditFinding) => {
-                  const key = `${f.nodeName || 'cluster'}-${f.id}`;
-                  const evidenceOpen = !!expandedEvidenceIds[key];
-                  return (
-                    <div key={key} className="px-4 py-3 space-y-2">
-                      {/* Row 1: 体检结果 */}
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-2 min-w-0">
-                          <span className="text-[11px] font-semibold text-slate-400 shrink-0">体检结果</span>
-                          <StatusPill status={f.severity} compact />
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
-                            {f.nodeName || '集群全局'}
-                          </span>
-                          <span className="text-xs font-semibold text-slate-900 dark:text-white">{f.title}</span>
-                        </div>
-
-                        {f.kernelEvidence && (
-                          <button
-                            onClick={() => toggleEvidence(key)}
-                            className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition shrink-0"
-                          >
-                            <Terminal className="w-3 h-3" />
-                            <span>{evidenceOpen ? '收起内核证据' : '查看内核证据'}</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Row 2 & 3: 根因预测 + 检测方法 */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 text-xs">
-                        <div className="flex items-start gap-2">
-                          <span className="text-[11px] font-semibold text-slate-400 shrink-0 mt-0.5">根因预测</span>
-                          <span className="text-slate-600 dark:text-slate-300 leading-relaxed">{f.detail}</span>
-                        </div>
-                        {f.remediation && (
-                          <div className="flex items-start justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200/70 dark:border-slate-800">
-                            <div className="flex items-start gap-2 min-w-0">
-                              <span className="text-[11px] font-semibold text-slate-400 shrink-0 mt-0.5">检测方法</span>
-                              <span className="font-mono text-[11px] text-slate-700 dark:text-slate-300 break-words">
-                                {f.remediation}
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => copyText(key, f.remediation || '')}
-                              className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] hover:text-blue-600"
-                            >
-                              {copiedKey === key ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-                              <span>{copiedKey === key ? '已复制' : '复制'}</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {evidenceOpen && f.kernelEvidence && (
-                        <div className="px-3 py-2 rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/60 text-[11px] font-mono text-amber-900 dark:text-amber-200 break-all">
-                          <span className="font-sans font-semibold text-[10px] text-amber-700 dark:text-amber-400 mr-2">底层内核态证据:</span>
-                          {f.kernelEvidence}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-[10px] uppercase text-[#8C7F73] border-b border-[#F2ECE4] dark:border-[#2E2721] bg-[#FAF6F1] dark:bg-[#25201C]/60">
+                      <th className="py-2 px-4 w-[28%]">体检结果</th>
+                      <th className="py-2 px-3 w-[34%]">根因预测</th>
+                      <th className="py-2 px-3 w-[30%]">检测方法</th>
+                      <th className="py-2 px-3 text-right w-[8%]">详情</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F2ECE4] dark:divide-[#2E2721]">
+                    {kernelReport.findings.map((f: AuditFinding) => {
+                      const key = `${f.nodeName || 'cluster'}-${f.id}`;
+                      const evidenceOpen = !!expandedEvidenceIds[key];
+                      return (
+                        <React.Fragment key={key}>
+                          <tr className="hover:bg-[#FDF8F2] dark:hover:bg-[#25201C]/40">
+                            <td className="py-2.5 px-4 align-middle">
+                              <div className="flex items-center gap-2">
+                                <StatusPill status={f.severity} compact />
+                                <span className="font-semibold text-[#201B18] dark:text-[#F5F0EA]">{f.title}</span>
+                              </div>
+                              <div className="text-[10px] font-mono text-[#8C7F73] mt-0.5">{f.nodeName || '集群全局'}</div>
+                            </td>
+                            <td className="py-2.5 px-3 align-middle text-[#574D44] dark:text-[#D5C9BC]">
+                              {f.detail}
+                            </td>
+                            <td className="py-2.5 px-3 align-middle">
+                              {f.remediation ? (
+                                <div className="flex items-center justify-between gap-2 px-2 py-1 rounded-md bg-[#F7F3EE] dark:bg-[#14110F] border border-[#E9E1D6] dark:border-[#2E2721]">
+                                  <code className="text-[11px] font-mono text-[#201B18] dark:text-[#F5F0EA] truncate" title={f.remediation}>
+                                    {f.remediation}
+                                  </code>
+                                  <button
+                                    onClick={() => copyText(key, f.remediation || '')}
+                                    className="shrink-0 text-[#8C7F73] hover:text-[#D9720B] transition"
+                                    title="复制检测命令"
+                                  >
+                                    {copiedKey === key ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[#8C7F73]">—</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 align-middle text-right">
+                              {f.kernelEvidence ? (
+                                <button
+                                  onClick={() => toggleEvidence(key)}
+                                  className="text-[11px] text-[#D9720B] hover:text-[#9E4A05] dark:text-[#FBB040] font-medium whitespace-nowrap"
+                                >
+                                  {evidenceOpen ? '收起' : '内核'}
+                                </button>
+                              ) : (
+                                <span className="text-[#8C7F73]">—</span>
+                              )}
+                            </td>
+                          </tr>
+                          {evidenceOpen && f.kernelEvidence && (
+                            <tr className="bg-[#FFF4E4]/60 dark:bg-[#F08C18]/10">
+                              <td colSpan={4} className="px-4 py-2 font-mono text-[11px] text-[#6C4824] dark:text-[#FBB040] break-all">
+                                <span className="font-sans font-semibold text-[10px] text-[#9E4A05] dark:text-[#F08C18] mr-2">内核证据:</span>
+                                {f.kernelEvidence}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </SectionCard>
@@ -742,7 +750,7 @@ export function AuditPage() {
             <div className="p-4 space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
                 <div className="md:col-span-3">
-                  <label className="block text-[10px] font-semibold uppercase text-slate-400 mb-1">源 Namespace</label>
+                  <label className="block text-[10px] font-semibold uppercase text-[#8C7F73] mb-1">源 Namespace</label>
                   <select
                     value={pmtudNs}
                     onChange={(e) => {
@@ -751,7 +759,7 @@ export function AuditPage() {
                       const first = pods.find((p) => p.namespace === nextNs && p.phase === 'Running' && !p.hostNetwork && p.ip);
                       setPmtudPod(first ? first.name : '');
                     }}
-                    className="w-full px-2.5 py-1.5 rounded-lg text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700"
+                    className="w-full px-2.5 py-1.5 rounded-lg text-xs bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721]"
                   >
                     {namespaces.map((ns) => (
                       <option key={ns} value={ns}>{ns}</option>
@@ -760,11 +768,11 @@ export function AuditPage() {
                 </div>
 
                 <div className="md:col-span-3">
-                  <label className="block text-[10px] font-semibold uppercase text-slate-400 mb-1">源 Pod</label>
+                  <label className="block text-[10px] font-semibold uppercase text-[#8C7F73] mb-1">源 Pod</label>
                   <select
                     value={pmtudPod}
                     onChange={(e) => setPmtudPod(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg text-xs font-mono bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700"
+                    className="w-full px-2.5 py-1.5 rounded-lg text-xs font-mono bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721]"
                   >
                     {podsInNs.map((p) => (
                       <option key={p.name} value={p.name}>
@@ -775,24 +783,24 @@ export function AuditPage() {
                 </div>
 
                 <div className="md:col-span-3">
-                  <label className="block text-[10px] font-semibold uppercase text-slate-400 mb-1">目标 IP (Pod / Node / 网关)</label>
+                  <label className="block text-[10px] font-semibold uppercase text-[#8C7F73] mb-1">目标 IP (Pod / Node / 网关)</label>
                   <input
                     value={pmtudTargetIP}
                     onChange={(e) => setPmtudTargetIP(e.target.value)}
                     placeholder="如 172.31.226.27"
-                    className="w-full px-2.5 py-1.5 rounded-lg text-xs font-mono bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700"
+                    className="w-full px-2.5 py-1.5 rounded-lg text-xs font-mono bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721]"
                   />
                 </div>
 
                 <div className="md:col-span-1">
-                  <label className="block text-[10px] font-semibold uppercase text-slate-400 mb-1">探测上限</label>
+                  <label className="block text-[10px] font-semibold uppercase text-[#8C7F73] mb-1">探测上限</label>
                   <input
                     type="number"
                     value={pmtudMaxMTU}
                     min={576}
                     max={9000}
                     onChange={(e) => setPmtudMaxMTU(Number(e.target.value) || 1500)}
-                    className="w-full px-2 py-1.5 rounded-lg text-xs font-mono bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700"
+                    className="w-full px-2 py-1.5 rounded-lg text-xs font-mono bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721]"
                   />
                 </div>
 
@@ -800,7 +808,7 @@ export function AuditPage() {
                   <button
                     onClick={handleRunPMTUD}
                     disabled={pmtudRunning || !pmtudPod || !pmtudTargetIP.trim()}
-                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition disabled:opacity-50"
+                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#F08C18] hover:bg-[#D9720B] text-white transition disabled:opacity-50"
                   >
                     {pmtudRunning ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
                     <span>{pmtudRunning ? '探测中...' : '执行 DF 探测'}</span>
@@ -873,23 +881,23 @@ export function AuditPage() {
           </SectionCard>
 
           {/* 4. Collapsible Advanced Drawer: Underlying Linux Conntrack & Sysctl Raw Diagnostics */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+          <div className="bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] rounded-xl overflow-hidden">
             <button
               onClick={() => setShowRawKernelPanel((v) => !v)}
-              className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition"
+              className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[#FAF6F1] dark:hover:bg-[#25201C]/40 transition"
             >
               <div className="flex items-center gap-2.5">
-                <SlidersHorizontal className="w-4 h-4 text-slate-400" />
+                <SlidersHorizontal className="w-4 h-4 text-[#8C7F73]" />
                 <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                  <div className="text-xs font-bold text-[#201B18] dark:text-[#F5F0EA]">
                     高级深度排障：底层 Linux Conntrack 状态表与内核 Sysctl 原始参数
                   </div>
-                  <div className="text-[11px] text-slate-400">
+                  <div className="text-[11px] text-[#8C7F73]">
                     默认收起以保持视图清晰；需要深入核查连接跟踪表多核计数或单个 sysctl 配置时可点击展开
                   </div>
                 </div>
               </div>
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 shrink-0">
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-[#D9720B] dark:text-[#FBB040] shrink-0">
                 <span>{showRawKernelPanel ? '收起' : `展开 (${kernelReport.nodes.length} 节点)`}</span>
                 {showRawKernelPanel ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               </span>
@@ -1198,8 +1206,8 @@ export function AuditPage() {
                                 onClick={() => setRouteFilterProto(k)}
                                 className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition ${
                                   routeFilterProto === k
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70'
+                                    ? 'bg-[#F08C18] text-white'
+                                    : 'bg-[#F7F3EE] dark:bg-[#25201C] text-[#574D44] dark:text-[#D5C9BC] hover:bg-[#FFF4E4] hover:text-[#9E4A05]'
                                 }`}
                               >
                                 {label}
@@ -1278,8 +1286,8 @@ export function AuditPage() {
       {subTab === 'l2' && kernelReport && (
         <div className="space-y-4">
           {/* Calico L2 / Proxy ARP Explainer Strip */}
-          <div className="px-4 py-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900 text-xs text-indigo-900 dark:text-indigo-200 flex items-start gap-2.5">
-            <Cable className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mt-0.5 shrink-0" />
+          <div className="px-4 py-3 rounded-xl bg-[#EDF5FC] dark:bg-[#155A96]/20 border border-[#C4DCF0] dark:border-[#4B84B8]/40 text-xs text-[#155A96] dark:text-[#7EB8E8] flex items-start gap-2.5">
+            <Cable className="w-4 h-4 text-[#155A96] dark:text-[#7EB8E8] mt-0.5 shrink-0" />
             <div>
               <b>Calico 二层工作原理提示：</b>
               Pod 内部把 <span className="font-mono font-semibold">169.254.1.1</span> 作为默认网关，宿主机侧 <span className="font-mono font-semibold">cali*</span> veth 通过开启 <b>Proxy ARP</b> 代答容器的 ARP 请求（返回虚拟 MAC <span className="font-mono">ee:ee:ee:ee:ee:ee</span>）；跨节点通信则依赖物理网卡对同网段集群节点或默认网关的正常 ARP MAC 解析。
@@ -1297,15 +1305,15 @@ export function AuditPage() {
                   onClick={() => setSelectedL2Node(n.nodeName)}
                   className={`text-left p-4 rounded-xl border transition ${
                     selected
-                      ? 'bg-blue-50/50 dark:bg-blue-950/30 border-blue-400 dark:border-blue-600 shadow-sm'
-                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-blue-300'
+                      ? 'bg-[#FFF4E4]/70 dark:bg-[#F08C18]/15 border-[#F08C18] shadow-sm'
+                      : 'bg-white dark:bg-[#1C1815] border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#FAD4A1]'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Server className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">{n.nodeName}</span>
-                      <span className="text-[11px] font-mono text-slate-400">{n.internalIP}</span>
+                      <Server className="w-4 h-4 text-[#F08C18]" />
+                      <span className="text-xs font-bold text-[#201B18] dark:text-[#F5F0EA]">{n.nodeName}</span>
+                      <span className="text-[11px] font-mono text-[#8C7F73]">{n.internalIP}</span>
                     </div>
                     {l2 && l2.arpFailedCount > 0 ? (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 text-rose-700">
@@ -1380,8 +1388,8 @@ export function AuditPage() {
                         onClick={() => setArpRoleFilter(k)}
                         className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition ${
                           arpRoleFilter === k
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70'
+                            ? 'bg-[#F08C18] text-white'
+                            : 'bg-[#F7F3EE] dark:bg-[#25201C] text-[#574D44] dark:text-[#D5C9BC] hover:bg-[#FFF4E4] hover:text-[#9E4A05]'
                         }`}
                       >
                         {label}

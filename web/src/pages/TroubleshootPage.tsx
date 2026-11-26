@@ -209,10 +209,10 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
   return (
     <div className="p-6 space-y-5 max-w-[1600px] mx-auto">
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+        <h1 className="text-xl font-bold tracking-tight text-[#201B18] dark:text-[#F5F0EA]">
           Pod 深度排障工作台
         </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+        <p className="text-xs text-[#8C7F73] dark:text-[#A39587] mt-1">
           直接切入目标 Pod Netns（无需业务容器预装 tcpdump/curl/shell），执行实时抓包、TCP 三次握手报文分析与 HTTP/HTTPS 全链路耗时探测
         </p>
       </div>
@@ -221,7 +221,7 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
       <SectionCard className="p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">目标 Pod:</span>
+            <span className="text-xs font-semibold text-[#8C7F73]">目标 Pod:</span>
             <select
               value={ns}
               onChange={(e) => {
@@ -230,7 +230,7 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
                 const first = pods.find((p) => p.namespace === nextNs);
                 if (first) setPodName(first.name);
               }}
-              className="px-2.5 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none"
+              className="px-2.5 py-1.5 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] outline-none"
             >
               {namespaces.map((n) => (
                 <option key={n} value={n}>{n}</option>
@@ -239,7 +239,7 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
             <select
               value={podName}
               onChange={(e) => setPodName(e.target.value)}
-              className="px-2.5 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono min-w-[260px] outline-none"
+              className="px-2.5 py-1.5 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] font-mono min-w-[260px] outline-none"
             >
               {podsInNs.map((p) => (
                 <option key={p.name} value={p.name}>
@@ -250,18 +250,18 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
           </div>
 
           {podDetail && (
-            <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-slate-600 dark:text-slate-300">
-              <span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800">IP: <b>{podDetail.pod.ip}</b></span>
-              <span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800">Node: <b>{podDetail.pod.nodeName}</b></span>
-              {podDetail.hostVeth && <span className="px-2 py-1 rounded bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300">veth: <b>{podDetail.hostVeth}</b></span>}
-              {podDetail.podMTU ? <span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800">MTU: {podDetail.podMTU}</span> : null}
-              <span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800">Policies: {podDetail.networkPolicies?.length || 0}</span>
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-[#574D44] dark:text-[#D5C9BC]">
+              <span className="px-2 py-1 rounded bg-[#F7F3EE] dark:bg-[#25201C]">IP: <b>{podDetail.pod.ip}</b></span>
+              <span className="px-2 py-1 rounded bg-[#F7F3EE] dark:bg-[#25201C]">Node: <b>{podDetail.pod.nodeName}</b></span>
+              {podDetail.hostVeth && <span className="px-2 py-1 rounded bg-[#EDF5FC] dark:bg-[#155A96]/25 text-[#155A96] dark:text-[#7EB8E8] border border-[#C4DCF0] dark:border-[#4B84B8]/40">veth: <b>{podDetail.hostVeth}</b></span>}
+              {podDetail.podMTU ? <span className="px-2 py-1 rounded bg-[#F7F3EE] dark:bg-[#25201C]">MTU: {podDetail.podMTU}</span> : null}
+              <span className="px-2 py-1 rounded bg-[#F7F3EE] dark:bg-[#25201C]">Policies: {podDetail.networkPolicies?.length || 0}</span>
             </div>
           )}
         </div>
 
         {/* Tool Tabs */}
-        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-2 pt-2 border-t border-[#F2ECE4] dark:border-[#2E2721]">
           {[
             { id: 'tcpdump', label: 'TCPdump 实时抓包', icon: Terminal },
             { id: 'tcp', label: 'TCP 三次握手检测', icon: Activity },
@@ -274,8 +274,8 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
                 onClick={() => setActiveTool(t.id as 'tcpdump' | 'tcp' | 'http')}
                 className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition ${
                   activeTool === t.id
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    ? 'bg-[#F08C18] text-white shadow-sm'
+                    : 'bg-[#F7F3EE] dark:bg-[#25201C] text-[#574D44] dark:text-[#D5C9BC] hover:bg-[#FFF4E4] hover:text-[#9E4A05] dark:hover:bg-[#332B24]'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -355,7 +355,7 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
                 {!dumpRunning ? (
                   <button
                     onClick={startDump}
-                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#F08C18] hover:bg-[#D9720B] text-white text-xs font-semibold"
                   >
                     <Play className="w-3.5 h-3.5" /> 开始抓包
                   </button>
@@ -501,7 +501,7 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
                 <button
                   onClick={runTCP}
                   disabled={tcpLoading}
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold"
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#F08C18] hover:bg-[#D9720B] disabled:opacity-50 text-white text-xs font-semibold"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${tcpLoading ? 'animate-spin' : ''}`} />
                   {tcpLoading ? '检测中...' : '执行握手检测'}
@@ -611,7 +611,7 @@ export function TroubleshootPage({ initialTarget }: TroubleshootPageProps) {
                 <button
                   onClick={runHTTP}
                   disabled={httpLoading}
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold"
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#F08C18] hover:bg-[#D9720B] disabled:opacity-50 text-white text-xs font-semibold"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${httpLoading ? 'animate-spin' : ''}`} />
                   {httpLoading ? '请求中...' : '发送探测'}

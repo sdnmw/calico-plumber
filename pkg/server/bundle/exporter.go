@@ -197,12 +197,12 @@ const offlineReportHTMLTemplate = `<!DOCTYPE html>
 <title>calico-plumber 故障现场诊断报告</title>
 <style>
   :root {
-    --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0;
-    --text: #0f172a; --muted: #64748b; --primary: #2563eb;
+    --bg: #fbf9f6; --card: #ffffff; --border: #e9e1d6;
+    --text: #201b18; --muted: #8c7f73; --primary: #d9720b;
     --ok-bg: #ecfdf5; --ok-fg: #047857; --ok-bd: #a7f3d0;
-    --warn-bg: #fffbeb; --warn-fg: #b45309; --warn-bd: #fde68a;
+    --warn-bg: #fff4e4; --warn-fg: #9e4a05; --warn-bd: #fad4a1;
     --err-bg: #fef2f2; --err-fg: #b91c1c; --err-bd: #fecaca;
-    --info-bg: #eff6ff; --info-fg: #1d4ed8; --info-bd: #bfdbfe;
+    --info-bg: #edf5fc; --info-fg: #155a96; --info-bd: #c4dcf0;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Inter", "Segoe UI", sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; font-size: 13px; }

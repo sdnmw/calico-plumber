@@ -45,19 +45,19 @@ export function OmniSearchModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-[2px] flex items-start justify-center pt-[10vh] px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-[#14110F]/50 backdrop-blur-[2px] flex items-start justify-center pt-[10vh] px-4" onClick={onClose}>
       <div
-        className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+        className="w-full max-w-2xl bg-white dark:bg-[#1C1815] rounded-2xl shadow-2xl border border-[#E9E1D6] dark:border-[#2E2721] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
-          <Search className="w-5 h-5 text-blue-500 shrink-0" />
+        <div className="px-4 py-3.5 border-b border-[#E9E1D6] dark:border-[#2E2721] flex items-center gap-3">
+          <Search className="w-5 h-5 text-[#F08C18] shrink-0" />
           <input
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="输入 Pod IP、ClusterIP、Node IP、Pod / Deployment / Service 名称或标签 (如 app=nginx)..."
-            className="flex-1 bg-transparent text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none"
+            className="flex-1 bg-transparent text-sm text-[#201B18] dark:text-[#F5F0EA] placeholder-[#8C7F73] outline-none"
           />
           {q && (
             <button onClick={() => setQ('')} className="text-slate-400 hover:text-slate-600">
@@ -120,7 +120,7 @@ export function OmniSearchModal({
                         onClose();
                         onLaunchTrace(item);
                       }}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] hover:bg-[#FDE6C4] dark:bg-[#F08C18]/15 dark:text-[#FBB040] dark:border-[#F08C18]/40"
                     >
                       <Route className="w-3 h-3" /> TraceFlow
                     </button>

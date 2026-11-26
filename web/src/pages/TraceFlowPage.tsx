@@ -251,10 +251,10 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
     <div className="p-3.5 sm:p-4 space-y-2.5 max-w-[1600px] mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-lg font-bold tracking-tight text-[#201B18] dark:text-[#F5F0EA]">
             多跳 TraceFlow 路径追踪
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-[#8C7F73] dark:text-[#A39587] mt-0.5">
             真实进入源 Pod Netns 注入唯一特征报文，并在源/目的双节点各关键接口（eth0 / cali* veth / kube-proxy NAT / tunl0 / vxlan.calico / 物理网卡）实时抓包观测，精准定位丢包跳点
           </p>
         </div>
@@ -266,7 +266,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
               setPlayTrigger(0);
               setIsPlayingFlow(false);
             }}
-            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-600 dark:text-slate-300 hover:border-blue-400 transition"
+            className="px-2.5 py-1 rounded-lg border border-[#E9E1D6] dark:border-[#2E2721] bg-white dark:bg-[#1C1815] text-xs text-[#574D44] dark:text-[#D5C9BC] hover:border-[#F08C18] hover:text-[#9E4A05] transition"
           >
             快速场景首页
           </button>
@@ -278,7 +278,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
           {/* Source Pod */}
           <div className="lg:col-span-4 space-y-1">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-[#8C7F73]">
               源 Pod (Source)
             </label>
             <div className="grid grid-cols-5 gap-1.5">
@@ -290,7 +290,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                   const first = pods.find((p) => p.namespace === ns);
                   if (first) setSrcPod(first.name);
                 }}
-                className="col-span-2 px-2.5 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none"
+                className="col-span-2 px-2.5 py-2 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] outline-none"
               >
                 {namespaces.map((ns) => (
                   <option key={ns} value={ns}>{ns}</option>
@@ -299,7 +299,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
               <select
                 value={srcPod}
                 onChange={(e) => setSrcPod(e.target.value)}
-                className="col-span-3 px-2.5 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono outline-none"
+                className="col-span-3 px-2.5 py-2 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] font-mono outline-none"
               >
                 {srcPodsInNs.map((p) => (
                   <option key={p.name} value={p.name}>
@@ -313,10 +313,10 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
           {/* Target Type + Target Selector */}
           <div className="lg:col-span-5 space-y-1">
             <div className="flex items-center justify-between">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-[#8C7F73]">
                 目标端点 (Destination)
               </label>
-              <div className="inline-flex rounded-md bg-slate-100 dark:bg-slate-800 p-0.5 text-[10px]">
+              <div className="inline-flex rounded-md bg-[#F7F3EE] dark:bg-[#25201C] p-0.5 text-[10px] border border-[#E9E1D6] dark:border-[#2E2721]">
                 {(['pod', 'service', 'node', 'ip'] as const).map((tt) => (
                   <button
                     key={tt}
@@ -332,8 +332,8 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                     }}
                     className={`px-2 py-0.5 rounded font-medium ${
                       targetType === tt
-                        ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-                        : 'text-slate-500'
+                        ? 'bg-[#FFF4E4] dark:bg-[#F08C18]/20 text-[#9E4A05] dark:text-[#FBB040] font-semibold shadow-sm'
+                        : 'text-[#8C7F73]'
                     }`}
                   >
                     {tt === 'pod' ? 'Pod' : tt === 'service' ? 'Service' : tt === 'node' ? 'Node' : 'IP / 域名'}
@@ -352,7 +352,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                     const first = pods.find((p) => p.namespace === ns);
                     if (first) setDstName(first.name);
                   }}
-                  className="col-span-2 px-2.5 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none"
+                  className="col-span-2 px-2.5 py-2 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] outline-none"
                 >
                   {namespaces.map((ns) => (
                     <option key={ns} value={ns}>{ns}</option>
@@ -361,7 +361,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                 <select
                   value={dstName}
                   onChange={(e) => setDstName(e.target.value)}
-                  className="col-span-3 px-2.5 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono outline-none"
+                  className="col-span-3 px-2.5 py-2 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] font-mono outline-none"
                 >
                   {dstPodsInNs.map((p) => (
                     <option key={p.name} value={p.name}>
@@ -385,7 +385,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                       if (first.ports?.[0]) setDstPort(first.ports[0]);
                     }
                   }}
-                  className="col-span-2 px-2.5 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none"
+                  className="col-span-2 px-2.5 py-2 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] outline-none"
                 >
                   {Array.from(new Set(services.map((s) => s.namespace))).sort().map((ns) => (
                     <option key={ns} value={ns}>{ns}</option>
@@ -398,7 +398,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                     const svc = dstSvcsInNs.find((s) => s.name === e.target.value);
                     if (svc?.ports?.[0]) setDstPort(svc.ports[0]);
                   }}
-                  className="col-span-3 px-2.5 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono outline-none"
+                  className="col-span-3 px-2.5 py-2 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] font-mono outline-none"
                 >
                   {dstSvcsInNs.map((s) => (
                     <option key={s.name} value={s.name}>
@@ -413,7 +413,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
               <select
                 value={dstName}
                 onChange={(e) => setDstName(e.target.value)}
-                className="w-full px-2.5 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono outline-none"
+                className="w-full px-2.5 py-2 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] font-mono outline-none"
               >
                 {nodes.map((n) => (
                   <option key={n.name} value={n.name}>
@@ -428,7 +428,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                 value={dstIP}
                 onChange={(e) => setDstIP(e.target.value)}
                 placeholder="例如 192.168.118.206 或 10.250.252.10 或 223.5.5.5"
-                className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono outline-none"
+                className="w-full px-3 py-2 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] font-mono outline-none"
               />
             )}
           </div>
@@ -436,11 +436,11 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
           {/* Protocol & Port & Run */}
           <div className="lg:col-span-3 flex items-end gap-2">
             <div className="w-24 space-y-1">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">协议</label>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-[#8C7F73]">协议</label>
               <select
                 value={protocol}
                 onChange={(e) => setProtocol(e.target.value as 'TCP' | 'UDP' | 'ICMP')}
-                className="w-full px-2 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono outline-none"
+                className="w-full px-2 py-2 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] font-mono outline-none"
               >
                 <option value="TCP">TCP</option>
                 <option value="UDP">UDP</option>
@@ -449,19 +449,19 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
             </div>
             {protocol !== 'ICMP' && (
               <div className="w-20 space-y-1">
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">端口</label>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-[#8C7F73]">端口</label>
                 <input
                   type="number"
                   value={dstPort}
                   onChange={(e) => setDstPort(Number(e.target.value))}
-                  className="w-full px-2 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono outline-none"
+                  className="w-full px-2 py-2 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] font-mono outline-none"
                 />
               </div>
             )}
             <button
               onClick={runTrace}
               disabled={running}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold shadow-sm transition"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-[#F08C18] hover:bg-[#D9720B] disabled:opacity-50 text-white text-xs font-semibold shadow-sm transition"
             >
               <Play className="w-3.5 h-3.5" />
               {running ? '追踪中...' : '执行 Trace'}
@@ -471,26 +471,26 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
         {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
         {/* Always-available compact 1-click quick preset bar when viewing a result */}
         {result && (
-          <div className="mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="text-slate-400 font-medium">一键快速场景：</span>
+          <div className="mt-2.5 pt-2.5 border-t border-[#F2ECE4] dark:border-[#2E2721] flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="text-[#8C7F73] font-medium">一键快速场景：</span>
             <button
               onClick={runPresetPodToPod}
               disabled={running}
-              className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-blue-50 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-blue-950/50 text-slate-700 dark:text-slate-300 transition disabled:opacity-50"
+              className="px-2.5 py-1 rounded-md bg-[#F7F3EE] hover:bg-[#FFF4E4] hover:text-[#9E4A05] dark:bg-[#25201C] dark:hover:bg-[#F08C18]/20 dark:hover:text-[#FBB040] text-[#574D44] dark:text-[#D5C9BC] transition disabled:opacity-50"
             >
               跨节点 Pod → Pod
             </button>
             <button
               onClick={runPresetPodToService}
               disabled={running}
-              className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-blue-50 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-blue-950/50 text-slate-700 dark:text-slate-300 transition disabled:opacity-50"
+              className="px-2.5 py-1 rounded-md bg-[#F7F3EE] hover:bg-[#FFF4E4] hover:text-[#9E4A05] dark:bg-[#25201C] dark:hover:bg-[#F08C18]/20 dark:hover:text-[#FBB040] text-[#574D44] dark:text-[#D5C9BC] transition disabled:opacity-50"
             >
               Pod → Service DNAT
             </button>
             <button
               onClick={runPresetPodToNode}
               disabled={running}
-              className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-blue-50 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-blue-950/50 text-slate-700 dark:text-slate-300 transition disabled:opacity-50"
+              className="px-2.5 py-1 rounded-md bg-[#F7F3EE] hover:bg-[#FFF4E4] hover:text-[#9E4A05] dark:bg-[#25201C] dark:hover:bg-[#F08C18]/20 dark:hover:text-[#FBB040] text-[#574D44] dark:text-[#D5C9BC] transition disabled:opacity-50"
             >
               Pod → 节点 InternalIP (ICMP)
             </button>
@@ -509,45 +509,45 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
               <button
                 onClick={runPresetPodToPod}
                 disabled={running || pods.length === 0}
-                className="text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 hover:shadow-sm bg-slate-50/70 dark:bg-slate-950/50 transition disabled:opacity-50 group"
+                className="text-left p-3.5 rounded-xl border border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#F08C18] hover:shadow-sm bg-[#FAF6F1] dark:bg-[#14110F]/60 transition disabled:opacity-50 group"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                  <span className="font-semibold text-[#201B18] dark:text-[#F5F0EA] group-hover:text-[#D9720B] dark:group-hover:text-[#FBB040]">
                     跨节点 Pod → Pod (BGP / 隧道)
                   </span>
-                  <Play className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <Play className="w-3.5 h-3.5 text-[#F08C18] shrink-0" />
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-[11px] text-[#8C7F73] mt-1">
                   完整观测源 Pod eth0 → cali* veth → 物理/隧道口 → 跨节点 Fabric → 目标 Pod 逐跳延迟与封装头
                 </p>
               </button>
               <button
                 onClick={runPresetPodToService}
                 disabled={running || pods.length === 0}
-                className="text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 hover:shadow-sm bg-slate-50/70 dark:bg-slate-950/50 transition disabled:opacity-50 group"
+                className="text-left p-3.5 rounded-xl border border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#F08C18] hover:shadow-sm bg-[#FAF6F1] dark:bg-[#14110F]/60 transition disabled:opacity-50 group"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                  <span className="font-semibold text-[#201B18] dark:text-[#F5F0EA] group-hover:text-[#D9720B] dark:group-hover:text-[#FBB040]">
                     Pod → Service ClusterIP (kube-proxy DNAT)
                   </span>
-                  <Play className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <Play className="w-3.5 h-3.5 text-[#F08C18] shrink-0" />
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-[11px] text-[#8C7F73] mt-1">
                   透视 iptables KUBE-SVC/SEP 或 IPVS 规则，展示 DNAT 选中的真实后端 Pod
                 </p>
               </button>
               <button
                 onClick={runPresetPodToNode}
                 disabled={running || pods.length === 0}
-                className="text-left p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 hover:shadow-sm bg-slate-50/70 dark:bg-slate-950/50 transition disabled:opacity-50 group"
+                className="text-left p-3.5 rounded-xl border border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#F08C18] hover:shadow-sm bg-[#FAF6F1] dark:bg-[#14110F]/60 transition disabled:opacity-50 group"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                  <span className="font-semibold text-[#201B18] dark:text-[#F5F0EA] group-hover:text-[#D9720B] dark:group-hover:text-[#FBB040]">
                     Pod → 节点 InternalIP (ICMP)
                   </span>
-                  <Play className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <Play className="w-3.5 h-3.5 text-[#F08C18] shrink-0" />
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-[11px] text-[#8C7F73] mt-1">
                   验证 Pod 到宿主机 / 跨节点主机的底层路由、Calico SNAT 与往返 Echo 连通性
                 </p>
               </button>
@@ -649,7 +649,7 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
               <a
                 href={api.getBundleExportUrl({ traceId: result.id })}
                 download
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-sans text-[11px] font-semibold bg-white/90 dark:bg-slate-900/90 hover:bg-blue-50 dark:hover:bg-blue-950/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-blue-700 dark:hover:text-blue-300 transition"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-sans text-[11px] font-semibold bg-[#F08C18] hover:bg-[#D9720B] text-white shadow-xs transition"
               >
                 <Download className="w-3 h-3" />
                 <span>导出本次诊断包</span>
@@ -674,20 +674,20 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                     }}
                     className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition ${
                       isPlayingFlow
-                        ? 'border-sky-400 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-300'
-                        : 'border-slate-200 bg-white hover:border-blue-400 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+                        ? 'border-[#FAD4A1] bg-[#FFF4E4] text-[#9E4A05] dark:border-[#F08C18]/50 dark:bg-[#F08C18]/20 dark:text-[#FBB040]'
+                        : 'border-[#E9E1D6] bg-white hover:border-[#F08C18] hover:text-[#9E4A05] text-[#574D44] dark:border-[#2E2721] dark:bg-[#1C1815] dark:text-[#D5C9BC]'
                     }`}
                   >
                     {isPlayingFlow ? '■ 停止演示' : '▶ 逐跳演示'}
                   </button>
                 )}
-                <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-[11px]">
+                <div className="inline-flex rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] p-0.5 text-[11px] border border-[#E9E1D6] dark:border-[#2E2721]">
                   <button
                     onClick={() => setViewMode('layered')}
                     className={`px-2.5 py-1 rounded-md font-medium transition ${
                       viewMode === 'layered'
-                        ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        ? 'bg-[#FFF4E4] dark:bg-[#F08C18]/20 text-[#9E4A05] dark:text-[#FBB040] font-semibold shadow-xs'
+                        : 'text-[#8C7F73] hover:text-[#201B18] dark:hover:text-[#F5F0EA]'
                     }`}
                   >
                     分层拓扑视图
@@ -696,8 +696,8 @@ export function TraceFlowPage({ initialReq }: TraceFlowPageProps) {
                     onClick={() => setViewMode('linear')}
                     className={`px-2.5 py-1 rounded-md font-medium transition ${
                       viewMode === 'linear'
-                        ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        ? 'bg-[#FFF4E4] dark:bg-[#F08C18]/20 text-[#9E4A05] dark:text-[#FBB040] font-semibold shadow-xs'
+                        : 'text-[#8C7F73] hover:text-[#201B18] dark:hover:text-[#F5F0EA]'
                     }`}
                   >
                     线性流水线

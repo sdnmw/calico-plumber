@@ -6,10 +6,10 @@ export function EncapBadge({ mode }: { mode: string }) {
   const style = m.includes('VXLAN')
     ? 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/50 dark:text-violet-300 dark:border-violet-800'
     : m.includes('IPIP')
-      ? 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800'
-      : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800';
+      ? 'bg-[#FFF4E4] text-[#9E4A05] border-[#FAD4A1] dark:bg-[#F08C18]/15 dark:text-[#FBB040] dark:border-[#F08C18]/40'
+      : 'bg-[#EDF5FC] text-[#155A96] border-[#C4DCF0] dark:bg-[#155A96]/25 dark:text-[#7EB8E8] dark:border-[#155A96]/50';
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${style}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${style}`}>
       <Layers className="w-3 h-3" />
       {m}
     </span>
@@ -79,13 +79,13 @@ export function SectionCard({
 }) {
   return (
     <div
-      className={`bg-white dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.04)] ${className}`}
+      className={`bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] rounded-xl shadow-[0_1px_3px_rgba(44,30,18,0.035)] ${className}`}
     >
       {(title || action) && (
-        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-3">
+        <div className="px-4 py-3 border-b border-[#F2ECE4] dark:border-[#2A231D] bg-gradient-to-b from-white to-[#FDFBF8] dark:from-[#201B17] dark:to-[#1C1815] rounded-t-xl flex items-center justify-between gap-3">
           <div>
-            {title && <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</h3>}
-            {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
+            {title && <h3 className="text-sm font-bold text-[#201B18] dark:text-[#F5F0EA]">{title}</h3>}
+            {subtitle && <p className="text-xs text-[#6E6257] dark:text-[#A39587] mt-0.5">{subtitle}</p>}
           </div>
           {action}
         </div>

@@ -38,35 +38,35 @@ export function PodInspectorDrawer({
   }, [namespace, podName]);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-[1px]" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-[#14110F]/40 backdrop-blur-[1px]" onClick={onClose}>
       <div
-        className="w-full max-w-xl bg-white dark:bg-slate-900 h-full shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden"
+        className="w-full max-w-xl bg-white dark:bg-[#1C1815] h-full shadow-2xl border-l border-[#E9E1D6] dark:border-[#2E2721] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-3">
+        <div className="px-5 py-4 border-b border-[#E9E1D6] dark:border-[#2E2721] flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 text-[11px] font-medium rounded bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+              <span className="px-2 py-0.5 text-[11px] font-medium rounded bg-[#EDF5FC] text-[#155A96] border border-[#C4DCF0] dark:bg-[#155A96]/25 dark:text-[#7EB8E8] dark:border-[#4B84B8]/40">
                 {namespace}
               </span>
               {detail && <StatusPill status={detail.pod.ready ? 'Ready' : detail.pod.phase} />}
             </div>
-            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100 mt-1 truncate font-mono">
+            <h2 className="text-base font-semibold text-[#201B18] dark:text-[#F5F0EA] mt-1 truncate font-mono">
               {podName}
             </h2>
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={load}
-              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="p-1.5 rounded-lg text-[#8C7F73] hover:bg-[#F7F3EE] dark:hover:bg-[#25201C]"
               title="刷新 Pod 数据面详情"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="p-1.5 rounded-lg text-[#8C7F73] hover:bg-[#F7F3EE] dark:hover:bg-[#25201C]"
             >
               <X className="w-4 h-4" />
             </button>
@@ -74,13 +74,13 @@ export function PodInspectorDrawer({
         </div>
 
         {/* One-Click Diagnostic Action Bar */}
-        <div className="px-5 py-3 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 grid grid-cols-4 gap-2">
+        <div className="px-5 py-3 bg-[#FAF6F1] dark:bg-[#14110F] border-b border-[#E9E1D6] dark:border-[#2E2721] grid grid-cols-4 gap-2">
           <button
             onClick={() => {
               onClose();
               onLaunchTrace({ srcNamespace: namespace, srcPod: podName });
             }}
-            className="flex flex-col items-center gap-1 px-2 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition shadow-sm"
+            className="flex flex-col items-center gap-1 px-2 py-2 rounded-lg bg-[#F08C18] hover:bg-[#D9720B] text-white text-xs font-medium transition shadow-sm"
           >
             <Route className="w-4 h-4" />
             <span>TraceFlow</span>

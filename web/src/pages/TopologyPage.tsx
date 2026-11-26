@@ -64,19 +64,19 @@ function ServiceNodeCard({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`w-[238px] rounded-xl bg-white dark:bg-slate-900 border border-l-[3.5px] ${accent} ${
+      className={`w-[238px] rounded-xl bg-white dark:bg-[#1C1815] border border-l-[3.5px] ${accent} ${
         selected
-          ? 'ring-2 ring-blue-500 border-blue-400 shadow-lg'
-          : 'border-slate-200/90 dark:border-slate-700/90 shadow-sm hover:shadow-md'
+          ? 'ring-2 ring-[#F08C18] border-[#F08C18] shadow-lg'
+          : 'border-[#E9E1D6] dark:border-[#2E2721] shadow-sm hover:shadow-md'
       } transition-all`}
     >
-      <Handle type="target" position={Position.Left} className="!w-2 !h-2 !bg-blue-500 !border-white dark:!border-slate-900" />
-      <Handle type="source" position={Position.Right} className="!w-2 !h-2 !bg-blue-500 !border-white dark:!border-slate-900" />
+      <Handle type="target" position={Position.Left} className="!w-2 !h-2 !bg-[#F08C18] !border-white dark:!border-[#1C1815]" />
+      <Handle type="source" position={Position.Right} className="!w-2 !h-2 !bg-[#F08C18] !border-white dark:!border-[#1C1815]" />
 
-      <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+      <div className="px-3 py-2 border-b border-[#F2ECE4] dark:border-[#2E2721] flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Icon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-          <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate font-mono" title={n.label}>
+          <Icon className="w-3.5 h-3.5 text-[#8C7F73] shrink-0" />
+          <span className="text-xs font-semibold text-[#201B18] dark:text-[#F5F0EA] truncate font-mono" title={n.label}>
             {n.label}
           </span>
         </div>
@@ -85,10 +85,10 @@ function ServiceNodeCard({ data, selected }: NodeProps) {
 
       <div className="px-3 py-2 space-y-1.5">
         <div className="flex items-center justify-between gap-1 text-[10px]">
-          <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium truncate max-w-[130px]">
+          <span className="px-1.5 py-0.5 rounded bg-[#F7F3EE] dark:bg-[#25201C] text-[#574D44] dark:text-[#D5C9BC] font-medium truncate max-w-[130px]">
             {n.namespace || n.kind}
           </span>
-          <span className="text-slate-400 font-mono">
+          <span className="text-[#8C7F73] font-mono">
             {n.podCount ? `${n.podCount} pods` : n.ip || n.kind}
           </span>
         </div>
@@ -98,19 +98,19 @@ function ServiceNodeCard({ data, selected }: NodeProps) {
             {n.ports.slice(0, 3).map((pt) => (
               <span
                 key={pt}
-                className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-50/80 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/60"
+                className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#EDF5FC] dark:bg-[#155A96]/25 text-[#155A96] dark:text-[#7EB8E8] border border-[#C4DCF0] dark:border-[#4B84B8]/40"
               >
                 {pt}
               </span>
             ))}
-            {n.ports.length > 3 && <span className="text-[10px] text-slate-400">+{n.ports.length - 3}</span>}
+            {n.ports.length > 3 && <span className="text-[10px] text-[#8C7F73]">+{n.ports.length - 3}</span>}
           </div>
         )}
 
-        <div className="pt-1 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
+        <div className="pt-1 border-t border-[#F2ECE4] dark:border-[#2E2721] flex items-center justify-between text-[10px] font-mono text-[#8C7F73]">
           <span>↓ {formatBps(n.inboundBps)}</span>
           <span>↑ {formatBps(n.outboundBps)}</span>
-          <span className={n.avgLatencyMs > 25 ? 'text-amber-600 font-semibold' : 'text-emerald-600 dark:text-emerald-400'}>
+          <span className={n.avgLatencyMs > 25 ? 'text-[#D9720B] font-semibold' : 'text-emerald-600 dark:text-emerald-400'}>
             {formatLatency(n.avgLatencyMs)}
           </span>
         </div>
@@ -142,7 +142,7 @@ function TrafficFlowEdge({
   });
 
   const strokeColor =
-    e?.health === 'critical' ? '#EF4444' : e?.health === 'warning' ? '#F59E0B' : selected ? '#2563EB' : '#10B981';
+    e?.health === 'critical' ? '#EF4444' : e?.health === 'warning' ? '#F08C18' : selected ? '#F08C18' : '#10B981';
 
   const bps = e?.bytesPerSec || 0;
   const strokeWidth = Math.min(5.5, Math.max(1.5, 1.5 + Math.log10(Math.max(1, bps / 500))));
@@ -170,8 +170,8 @@ function TrafficFlowEdge({
             }}
             className={`px-2 py-0.5 rounded-full text-[10px] font-mono border shadow-sm cursor-pointer transition whitespace-nowrap ${
               selected
-                ? 'bg-blue-600 text-white border-blue-600 scale-105 z-20'
-                : 'bg-white/95 dark:bg-slate-900/95 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-blue-400'
+                ? 'bg-[#F08C18] text-white border-[#D9720B] scale-105 z-20'
+                : 'bg-white/95 dark:bg-[#1C1815]/95 text-[#201B18] dark:text-[#F5F0EA] border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#F08C18]'
             }`}
           >
             <span className="font-semibold">{e.primaryLabel}</span>
@@ -347,7 +347,7 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
   return (
     <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
       {/* Top Filter Bar */}
-      <div className="px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
+      <div className="px-4 py-2.5 bg-white dark:bg-[#1C1815] border-b border-[#E9E1D6] dark:border-[#2E2721] flex flex-wrap items-center justify-between gap-3 shrink-0">
         <div className="flex flex-wrap items-center gap-2">
           {/* Namespace selector */}
           <select
@@ -357,7 +357,7 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
               setNamespace(v);
               setGranularity(v === 'all' ? 'namespace' : 'workload');
             }}
-            className="px-2.5 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-2.5 py-1.5 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] font-medium outline-none focus:ring-2 focus:ring-[#F08C18]"
           >
             <option value="all">全部命名空间</option>
             {(graph?.namespaces || []).map((ns) => (
@@ -366,15 +366,15 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
           </select>
 
           {/* Granularity segmented control */}
-          <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200/70 dark:border-slate-700">
+          <div className="inline-flex rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] p-0.5 border border-[#E9E1D6] dark:border-[#2E2721]">
             {(['namespace', 'workload', 'pod', 'node'] as const).map((g) => (
               <button
                 key={g}
                 onClick={() => setGranularity(g)}
                 className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${
                   granularity === g
-                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-[#FFF4E4] dark:bg-[#F08C18]/20 text-[#9E4A05] dark:text-[#FBB040] shadow-sm font-semibold'
+                    : 'text-[#574D44] dark:text-[#A39587] hover:text-[#201B18] dark:hover:text-[#F5F0EA]'
                 }`}
               >
                 {g === 'namespace' ? 'Namespace' : g === 'workload' ? 'Workload' : g === 'pod' ? 'Pod' : 'Node'}
@@ -386,7 +386,7 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
           <select
             value={windowSec}
             onChange={(e) => setWindowSec(Number(e.target.value))}
-            className="px-2.5 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono outline-none"
+            className="px-2.5 py-1.5 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] font-mono outline-none"
           >
             <option value={60}>最近 1m</option>
             <option value={300}>最近 5m</option>
@@ -398,7 +398,7 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
           <select
             value={protocol}
             onChange={(e) => setProtocol(e.target.value)}
-            className="px-2.5 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono outline-none"
+            className="px-2.5 py-1.5 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] font-mono outline-none"
           >
             <option value="">全部协议</option>
             <option value="TCP">TCP</option>
@@ -408,22 +408,22 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
 
           {/* Quick filter */}
           <div className="relative">
-            <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Filter className="w-3.5 h-3.5 text-[#8C7F73] absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="过滤 IP / 端口 / 名称..."
-              className="pl-8 pr-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-44 outline-none focus:ring-2 focus:ring-blue-500"
+              className="pl-8 pr-3 py-1.5 text-xs rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] w-44 outline-none focus:ring-2 focus:ring-[#F08C18]"
             />
           </div>
         </div>
 
         <div className="flex items-center gap-2 text-xs">
           {graph && (
-            <div className="hidden xl:flex items-center gap-3 px-3 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700 font-mono text-[11px]">
+            <div className="hidden xl:flex items-center gap-3 px-3 py-1 rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] font-mono text-[11px]">
               <span>节点: <b>{graph.summary.nodeCount}</b></span>
               <span>连线: <b>{graph.summary.edgeCount}</b></span>
-              <span>吞吐: <b className="text-blue-600 dark:text-blue-400">{formatBps(graph.summary.totalBytesPerSec)}</b></span>
+              <span>吞吐: <b className="text-[#155A96] dark:text-[#7EB8E8]">{formatBps(graph.summary.totalBytesPerSec)}</b></span>
               <span>均值延迟: <b className="text-emerald-600 dark:text-emerald-400">{formatLatency(graph.summary.avgLatencyMs)}</b></span>
             </div>
           )}
@@ -432,7 +432,7 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
             className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition ${
               live
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
-                : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                : 'bg-[#F7F3EE] text-[#574D44] border-[#E9E1D6] dark:bg-[#25201C] dark:text-[#D5C9BC] dark:border-[#2E2721]'
             }`}
           >
             {live ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
@@ -440,7 +440,7 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
           </button>
           <button
             onClick={load}
-            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="p-1.5 rounded-lg border border-[#E9E1D6] dark:border-[#2E2721] hover:bg-[#FFF4E4] hover:border-[#FAD4A1] dark:hover:bg-[#25201C]"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -449,10 +449,10 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
 
       {/* Main Split Workspace: Canvas + Optional Right Edge Inspector */}
       <div className="flex-1 flex min-h-0 relative">
-        <div className="flex-1 h-full bg-slate-50 dark:bg-[#0B1120] relative">
+        <div className="flex-1 h-full bg-[#FBF9F6] dark:bg-[#14110F] relative">
           {nodes.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400 text-xs">
-              <p className="text-sm font-medium text-slate-500">当前筛选条件下暂无活跃流量边</p>
+            <div className="h-full flex flex-col items-center justify-center text-[#8C7F73] text-xs">
+              <p className="text-sm font-medium text-[#574D44]">当前筛选条件下暂无活跃流量边</p>
               <p className="mt-1">请等待 2~4 秒采集上报，或扩大时间窗口 / 切换到“全部命名空间”</p>
             </div>
           ) : (
@@ -470,7 +470,7 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
               maxZoom={2}
             >
               <AutoFitViewport fitKey={graphFitKey} nodeCount={nodes.length} />
-              <Background gap={20} size={1} color="#94a3b8" className="opacity-25" />
+              <Background gap={20} size={1} color="#B8A99A" className="opacity-30" />
               <Controls position="top-left" />
               <MiniMap position="bottom-right" nodeStrokeWidth={2} pannable zoomable />
             </ReactFlow>
@@ -479,46 +479,46 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
 
         {/* Edge Five-Tuple Inspector Drawer */}
         {selectedEdge && (
-          <div className="w-[420px] border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full shadow-xl z-20">
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+          <div className="w-[420px] border-l border-[#E9E1D6] dark:border-[#2E2721] bg-white dark:bg-[#1C1815] flex flex-col h-full shadow-xl z-20">
+            <div className="px-4 py-3 border-b border-[#E9E1D6] dark:border-[#2E2721] flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <StatusPill status={selectedEdge.health} />
                   {selectedEdge.crossNode && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#FFF4E4] text-[#9E4A05] dark:bg-[#F08C18]/20 dark:text-[#FBB040]">
                       跨节点流量
                     </span>
                   )}
                 </div>
-                <div className="text-xs font-mono font-semibold text-slate-800 dark:text-slate-100 mt-1.5 truncate">
+                <div className="text-xs font-mono font-semibold text-[#201B18] dark:text-[#F5F0EA] mt-1.5 truncate">
                   {selectedEdge.source} → {selectedEdge.target}
                 </div>
               </div>
               <button
                 onClick={() => setSelectedEdge(null)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                className="p-1.5 rounded-lg hover:bg-[#F7F3EE] dark:hover:bg-[#25201C] text-[#8C7F73]"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 grid grid-cols-3 gap-2 text-xs">
+            <div className="p-4 border-b border-[#E9E1D6] dark:border-[#2E2721] grid grid-cols-3 gap-2 text-xs">
               <MetricMini label="实时吞吐" value={formatBps(selectedEdge.bytesPerSec)} sub={`累计 ${formatBytes(selectedEdge.bytesTotal)}`} />
               <MetricMini label="平均 / P95 延迟" value={formatLatency(selectedEdge.latencyAvgMs)} sub={`P95 ${formatLatency(selectedEdge.latencyP95Ms)}`} />
               <MetricMini label="重传 / RST" value={`${selectedEdge.retransmits} / ${selectedEdge.resets}`} sub={`${selectedEdge.flowCount} 五元组`} />
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 px-1">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-[#8C7F73] px-1">
                 五元组连接明细 ({selectedEdge.fiveTuples.length})
               </div>
               {selectedEdge.fiveTuples.map((f) => (
                 <div
                   key={f.id}
-                  className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 space-y-1.5 text-[11px]"
+                  className="p-2.5 rounded-lg border border-[#E9E1D6] dark:border-[#2E2721] bg-[#FAF6F1] dark:bg-[#14110F] space-y-1.5 text-[11px]"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
+                    <span className="font-mono font-semibold text-[#155A96] dark:text-[#7EB8E8]">
                       {f.protocol} :{f.dstPort}
                     </span>
                     <div className="flex items-center gap-1.5">
@@ -526,29 +526,29 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
                       <StatusPill status={f.health} />
                     </div>
                   </div>
-                  <div className="font-mono text-slate-700 dark:text-slate-300 break-all">
+                  <div className="font-mono text-[#201B18] dark:text-[#F5F0EA] break-all">
                     {f.src.ip}:{f.srcPort} → {f.dst.ip}:{f.dstPort}
                   </div>
                   <div
-                    className="text-slate-500 truncate"
+                    className="text-[#8C7F73] truncate"
                     title={`${f.src.displayName} → ${f.viaService ? `[${f.viaService.displayName}] → ` : ''}${f.dst.displayName}`}
                   >
                     {f.src.displayName} → {f.viaService ? `[${f.viaService.displayName}] → ` : ''}{f.dst.displayName}
                   </div>
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-200/70 dark:border-slate-800 font-mono text-[10px] text-slate-500">
+                  <div className="flex items-center justify-between pt-1 border-t border-[#E9E1D6] dark:border-[#2E2721] font-mono text-[10px] text-[#8C7F73]">
                     <span>{formatBytes(f.bytesTotal)} ({formatBps(f.bytesPerSec)})</span>
                     <span>RTT {formatLatency(f.latencyAvgMs)}</span>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => jumpTraceFromFlow(f)}
-                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-700"
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#F08C18] text-white hover:bg-[#D9720B]"
                       >
                         <Route className="w-2.5 h-2.5" /> Trace
                       </button>
                       {f.src.kind === 'Pod' && f.src.namespace && f.src.podName && (
                         <button
                           onClick={() => onLaunchTCPDump(f.src.namespace!, f.src.podName!)}
-                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-300"
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#EFE7DD] dark:bg-[#25201C] text-[#574D44] dark:text-[#D5C9BC] hover:bg-[#E5D9CA]"
                         >
                           <Terminal className="w-2.5 h-2.5" /> 抓包
                         </button>
@@ -563,24 +563,24 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
       </div>
 
       {/* Collapsible Bottom Live 5-Tuple Flows Table */}
-      <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+      <div className="border-t border-[#E9E1D6] dark:border-[#2E2721] bg-white dark:bg-[#1C1815] shrink-0">
         <div
           onClick={() => setDrawerExpanded((v) => !v)}
-          className="px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
+          className="px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-[#FAF6F1] dark:hover:bg-[#25201C]/50"
         >
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+          <div className="flex items-center gap-2 text-xs font-semibold text-[#201B18] dark:text-[#F5F0EA]">
             <span>实时五元组流表 (Live Flows)</span>
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] dark:bg-[#F08C18]/15 dark:text-[#FBB040] dark:border-[#F08C18]/40">
               {liveFlows.length}
             </span>
           </div>
-          {drawerExpanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronUp className="w-4 h-4 text-slate-400" />}
+          {drawerExpanded ? <ChevronDown className="w-4 h-4 text-[#8C7F73]" /> : <ChevronUp className="w-4 h-4 text-[#8C7F73]" />}
         </div>
 
         {drawerExpanded && (
-          <div className="h-[220px] overflow-auto border-t border-slate-100 dark:border-slate-800">
+          <div className="h-[220px] overflow-auto border-t border-[#F2ECE4] dark:border-[#2E2721]">
             <table className="w-full text-[11px] font-mono">
-              <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-500 sticky top-0 z-10">
+              <thead className="bg-[#FAF6F1] dark:bg-[#25201C] text-[#8C7F73] sticky top-0 z-10">
                 <tr>
                   <th className="text-left px-3 py-1.5 font-medium">源端点 (Src Pod / IP:Port)</th>
                   <th className="text-left px-3 py-1.5 font-medium">目标端点 (Via SVC → Dst Pod / IP:Port)</th>
@@ -592,72 +592,72 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
                   <th className="text-right px-3 py-1.5 font-medium">排障</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+              <tbody className="divide-y divide-[#F2ECE4] dark:divide-[#2E2721]">
                 {liveFlows.slice(0, 80).map((f, idx) => {
                   const dstFull = `${f.viaService ? `[${f.viaService.serviceName}] → ` : ''}${f.dst.displayName}`;
                   const tipPos = idx === 0 ? 'top-full mt-1' : 'bottom-full mb-1';
                   return (
-                    <tr key={f.id} className="hover:bg-blue-50/40 dark:hover:bg-slate-800/50">
+                    <tr key={f.id} className="hover:bg-[#FDF8F2] dark:hover:bg-[#25201C]/50">
                       <td className="px-3 py-1.5">
                         <div className="relative group inline-block max-w-[230px] align-top">
                           <div
                             title={`${f.src.displayName} (${f.src.ip}:${f.srcPort})`}
-                            className="text-slate-800 dark:text-slate-100 font-sans font-medium truncate cursor-default"
+                            className="text-[#201B18] dark:text-[#F5F0EA] font-sans font-medium truncate cursor-default"
                           >
                             {f.src.displayName}
                           </div>
-                          <div className={`pointer-events-none hidden group-hover:block absolute left-0 ${tipPos} z-30 w-max max-w-[460px] px-2.5 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-mono shadow-lg border border-slate-700 break-all`}>
+                          <div className={`pointer-events-none hidden group-hover:block absolute left-0 ${tipPos} z-30 w-max max-w-[460px] px-2.5 py-1.5 rounded-lg bg-[#201B18] text-[#F5F0EA] text-[11px] font-mono shadow-lg border border-[#3E352D] break-all`}>
                             <div>{f.src.displayName}</div>
-                            <div className="text-[10px] text-slate-300 mt-0.5">{f.src.ip}:{f.srcPort}</div>
+                            <div className="text-[10px] text-[#C4B5A5] mt-0.5">{f.src.ip}:{f.srcPort}</div>
                           </div>
                         </div>
-                        <div className="text-[10px] text-slate-400">{f.src.ip}:{f.srcPort}</div>
+                        <div className="text-[10px] text-[#8C7F73]">{f.src.ip}:{f.srcPort}</div>
                       </td>
                       <td className="px-3 py-1.5">
                         <div className="relative group inline-block max-w-[260px] align-top">
                           <div
                             title={`${dstFull} (${f.dst.ip}:${f.dstPort})`}
-                            className="text-slate-800 dark:text-slate-100 font-sans font-medium truncate cursor-default"
+                            className="text-[#201B18] dark:text-[#F5F0EA] font-sans font-medium truncate cursor-default"
                           >
-                            {f.viaService ? <span className="text-teal-600 dark:text-teal-400">[{f.viaService.serviceName}] → </span> : null}
+                            {f.viaService ? <span className="text-[#155A96] dark:text-[#7EB8E8]">[{f.viaService.serviceName}] → </span> : null}
                             {f.dst.displayName}
                           </div>
-                          <div className={`pointer-events-none hidden group-hover:block absolute left-0 ${tipPos} z-30 w-max max-w-[460px] px-2.5 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-mono shadow-lg border border-slate-700 break-all`}>
+                          <div className={`pointer-events-none hidden group-hover:block absolute left-0 ${tipPos} z-30 w-max max-w-[460px] px-2.5 py-1.5 rounded-lg bg-[#201B18] text-[#F5F0EA] text-[11px] font-mono shadow-lg border border-[#3E352D] break-all`}>
                             <div>{dstFull}</div>
-                            <div className="text-[10px] text-slate-300 mt-0.5">{f.dst.ip}:{f.dstPort}</div>
+                            <div className="text-[10px] text-[#C4B5A5] mt-0.5">{f.dst.ip}:{f.dstPort}</div>
                           </div>
                         </div>
-                        <div className="text-[10px] text-slate-400">{f.dst.ip}:{f.dstPort}</div>
+                        <div className="text-[10px] text-[#8C7F73]">{f.dst.ip}:{f.dstPort}</div>
                       </td>
                     <td className="px-3 py-1.5">
-                      <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
+                      <span className="px-1.5 py-0.5 rounded bg-[#F7F3EE] dark:bg-[#25201C] text-[#574D44] dark:text-[#D5C9BC]">
                         {f.protocol}
                       </span>
                     </td>
                     <td className="px-3 py-1.5 text-right">
                       <div>{formatBytes(f.bytesTotal)}</div>
-                      <div className="text-[10px] text-slate-400">{formatBps(f.bytesPerSec)}</div>
+                      <div className="text-[10px] text-[#8C7F73]">{formatBps(f.bytesPerSec)}</div>
                     </td>
                     <td className="px-3 py-1.5 text-right">
-                      <span className={f.latencyAvgMs > 25 ? 'text-amber-600 font-semibold' : 'text-emerald-600 dark:text-emerald-400'}>
+                      <span className={f.latencyAvgMs > 25 ? 'text-[#D9720B] font-semibold' : 'text-emerald-600 dark:text-emerald-400'}>
                         {formatLatency(f.latencyAvgMs)}
                       </span>
-                      <div className="text-[10px] text-slate-400">max {formatLatency(f.latencyMaxMs)}</div>
+                      <div className="text-[10px] text-[#8C7F73]">max {formatLatency(f.latencyMaxMs)}</div>
                     </td>
                     <td className="px-3 py-1.5 text-right">
-                      <span className={f.retransmits > 0 || f.resets > 0 ? 'text-rose-600 font-semibold' : 'text-slate-400'}>
+                      <span className={f.retransmits > 0 || f.resets > 0 ? 'text-rose-600 font-semibold' : 'text-[#8C7F73]'}>
                         {f.retransmits} / {f.resets}
                       </span>
                     </td>
                     <td className="px-3 py-1.5">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${f.engine === 'ebpf' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300'}`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${f.engine === 'ebpf' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-[#EDF5FC] text-[#155A96] dark:bg-[#155A96]/25 dark:text-[#7EB8E8]'}`}>
                         {f.engine === 'ebpf' ? 'ebpf' : 'legacy'}
                       </span>
                     </td>
                       <td className="px-3 py-1.5 text-right">
                         <button
                           onClick={() => jumpTraceFromFlow(f)}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 font-sans font-medium"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] hover:bg-[#FDE6C4] dark:bg-[#F08C18]/15 dark:text-[#FBB040] dark:border-[#F08C18]/40 font-sans font-medium"
                         >
                           <Route className="w-3 h-3" /> TraceFlow
                         </button>
@@ -676,10 +676,10 @@ export function TopologyPage({ onLaunchTrace, onLaunchTCPDump }: TopologyPagePro
 
 function MetricMini({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800">
-      <div className="text-[10px] text-slate-400">{label}</div>
-      <div className="text-xs font-bold font-mono text-slate-900 dark:text-white mt-0.5">{value}</div>
-      <div className="text-[10px] text-slate-400 mt-0.5 truncate">{sub}</div>
+    <div className="p-2 rounded-lg bg-[#FAF6F1] dark:bg-[#14110F] border border-[#E9E1D6] dark:border-[#2E2721]">
+      <div className="text-[10px] text-[#8C7F73]">{label}</div>
+      <div className="text-xs font-bold font-mono text-[#201B18] dark:text-[#F5F0EA] mt-0.5">{value}</div>
+      <div className="text-[10px] text-[#8C7F73] mt-0.5 truncate">{sub}</div>
     </div>
   );
 }

@@ -544,10 +544,10 @@ func evaluateKernelAuditFindings(
 			NodeName:       nodeName,
 			Severity:       "critical",
 			Category:       "l2",
-			Title:          fmt.Sprintf("二层默认网关 %s 的 ARP 解析失败 (%s)", l2.DefaultGateway, l2.GatewayARPState),
-			Detail:         fmt.Sprintf("宿主机物理网卡 %s 无法完成对默认网关 %s 的 MAC 地址解析，跨网段路由和集群外向访问将中断。", l2.PrimaryNIC, l2.DefaultGateway),
+			Title:          fmt.Sprintf("默认网关 %s ARP 解析失败 (%s)", l2.DefaultGateway, l2.GatewayARPState),
+			Detail:         fmt.Sprintf("物理网卡 %s 无法解析网关 MAC，跨网段通信中断", l2.PrimaryNIC),
 			KernelEvidence: fmt.Sprintf("ip neigh: gateway=%s dev=%s mac=%s state=%s", l2.DefaultGateway, l2.PrimaryNIC, l2.GatewayMAC, l2.GatewayARPState),
-			Remediation:    fmt.Sprintf("检查物理网卡链路与 VLAN/网关连通性: arping -I %s %s && ip neigh show %s", l2.PrimaryNIC, l2.DefaultGateway, l2.DefaultGateway),
+			Remediation:    fmt.Sprintf("arping -I %s %s && ip neigh show %s", l2.PrimaryNIC, l2.DefaultGateway, l2.DefaultGateway),
 		})
 	}
 	if l2.ARPUsagePct >= 75 {
@@ -558,10 +558,10 @@ func evaluateKernelAuditFindings(
 			NodeName:       nodeName,
 			Severity:       "warning",
 			Category:       "l2",
-			Title:          fmt.Sprintf("二层 ARP 邻居表使用率偏高 %.1f%% (%d / %d)", l2.ARPUsagePct, l2.ARPCount, l2.ARPGCThresh3),
-			Detail:         "二层同网段邻居 MAC 缓存接近内核上限，若继续增长将触发 ARP 表溢出并导致新通信对端无法解析 MAC 地址。",
+			Title:          fmt.Sprintf("ARP 邻居表水位偏高 %.1f%% (%d/%d)", l2.ARPUsagePct, l2.ARPCount, l2.ARPGCThresh3),
+			Detail:         "二层 MAC 缓存接近 gc_thresh3 上限，存在溢出丢包风险",
 			KernelEvidence: fmt.Sprintf("net.ipv4.neigh.default.gc_thresh3=%d, 当前 IPv4 邻居条目=%d", l2.ARPGCThresh3, l2.ARPCount),
-			Remediation:    "调大 ARP 邻居表上限: sysctl -w net.ipv4.neigh.default.gc_thresh1=2048 net.ipv4.neigh.default.gc_thresh2=4096 net.ipv4.neigh.default.gc_thresh3=8192",
+			Remediation:    "ip neigh show | wc -l && sysctl net.ipv4.neigh.default.gc_thresh3",
 		})
 	}
 	if l2.TotalCaliVeths > 0 && l2.ProxyARPVeths < l2.TotalCaliVeths {
@@ -572,14 +572,14 @@ func evaluateKernelAuditFindings(
 			NodeName:       nodeName,
 			Severity:       "warning",
 			Category:       "l2",
-			Title:          fmt.Sprintf("部分容器 cali* 网卡未开启 Proxy ARP (%d/%d 已开启)", l2.ProxyARPVeths, l2.TotalCaliVeths),
-			Detail:         "Calico 依赖宿主机 cali* veth 的 Proxy ARP 代答容器内对虚拟网关 169.254.1.1 的 ARP 请求；关闭该开关会导致受影响 Pod 无法解析默认网关 MAC。",
+			Title:          fmt.Sprintf("cali* 网卡 Proxy ARP 未全开 (%d/%d)", l2.ProxyARPVeths, l2.TotalCaliVeths),
+			Detail:         "受影响 Pod 无法解析默认网关 169.254.1.1 MAC",
 			KernelEvidence: fmt.Sprintf("/proc/sys/net/ipv4/conf/cali*/proxy_arp=1 命中 %d / %d", l2.ProxyARPVeths, l2.TotalCaliVeths),
-			Remediation:    "检查节点 calico-node Felix 日志，确认是否被其他网络工具覆盖了 cali* 接口 sysctl。",
+			Remediation:    "grep . /proc/sys/net/ipv4/conf/cali*/proxy_arp",
 		})
 	}
 
-	// 2. NAT & Connection State Table (Network-first description + Conntrack drilldown evidence)
+	// 2. NAT & Connection State Table
 	ctEvidence := fmt.Sprintf(
 		"nf_conntrack_count=%d / %d (%.2f%%) · buckets=%d · insert_failed=%d · drop=%d · early_drop=%d · invalid=%d · search_restart=%d · SNAT --random-fully=%v",
 		ct.Count, ct.Max, ct.UsagePct, ct.Buckets, ct.InsertFailed, ct.Drop, ct.EarlyDrop, ct.Invalid, ct.SearchRestart, ct.SNATRandomFully,
@@ -594,10 +594,10 @@ func evaluateKernelAuditFindings(
 				NodeName:       nodeName,
 				Severity:       "critical",
 				Category:       "nat",
-				Title:          fmt.Sprintf("NAT 与连接状态表接近饱和 %.1f%% (%d / %d)", ct.UsagePct, ct.Count, ct.Max),
-				Detail:         "宿主机负责记录 NAT 转换映射与连接状态的会话表水位已超 85%，继续增长将导致新建 TCP/UDP 连接及 Service 访问被内核静默丢弃。",
+				Title:          fmt.Sprintf("NAT 会话表接近饱和 %.1f%% (%d/%d)", ct.UsagePct, ct.Count, ct.Max),
+				Detail:         "连接跟踪表即将打满，新建连接将被内核丢弃",
 				KernelEvidence: ctEvidence,
-				Remediation:    "sysctl -w net.netfilter.nf_conntrack_max=524288 && echo 131072 > /sys/module/nf_conntrack/parameters/hashsize",
+				Remediation:    "sysctl net.netfilter.nf_conntrack_count net.netfilter.nf_conntrack_max",
 			})
 		} else if ct.UsagePct >= 65 {
 			hasWarn = true
@@ -607,10 +607,10 @@ func evaluateKernelAuditFindings(
 				NodeName:       nodeName,
 				Severity:       "warning",
 				Category:       "nat",
-				Title:          fmt.Sprintf("NAT 与连接状态表水位偏高 %.1f%% (%d / %d)", ct.UsagePct, ct.Count, ct.Max),
-				Detail:         "活跃 NAT 与连接状态会话数已超容量 65%，在短连接或 UDP DNS 突发峰值期间存在建表压力。",
+				Title:          fmt.Sprintf("NAT 会话表水位偏高 %.1f%% (%d/%d)", ct.UsagePct, ct.Count, ct.Max),
+				Detail:         "高峰短连接或 DNS 并发时存在建表溢出风险",
 				KernelEvidence: ctEvidence,
-				Remediation:    "sysctl -w net.netfilter.nf_conntrack_max=524288",
+				Remediation:    "sysctl net.netfilter.nf_conntrack_count net.netfilter.nf_conntrack_max",
 			})
 		}
 		if ct.Buckets > 0 && ct.Max/ct.Buckets > 8 {
@@ -621,10 +621,10 @@ func evaluateKernelAuditFindings(
 				NodeName:       nodeName,
 				Severity:       "warning",
 				Category:       "nat",
-				Title:          fmt.Sprintf("NAT 状态表哈希桶比例偏低 (max/buckets = %d)", ct.Max/ct.Buckets),
-				Detail:         "连接状态查询哈希链表偏长，高吞吐 NAT/Service 转发场景下会增加软中断延迟。",
+				Title:          fmt.Sprintf("NAT 状态表哈希桶偏小 (max/buckets=%d)", ct.Max/ct.Buckets),
+				Detail:         "哈希链偏长，高并发 NAT 转发增加软中断延迟",
 				KernelEvidence: ctEvidence,
-				Remediation:    fmt.Sprintf("echo %d > /sys/module/nf_conntrack/parameters/hashsize", ct.Max/4),
+				Remediation:    "cat /sys/module/nf_conntrack/parameters/hashsize",
 			})
 		}
 	}
@@ -638,10 +638,10 @@ func evaluateKernelAuditFindings(
 			NodeName:       nodeName,
 			Severity:       "critical",
 			Category:       "nat",
-			Title:          fmt.Sprintf("NAT 状态表曾因满载强制淘汰活跃连接（early_drop=%d）", ct.EarlyDrop),
-			Detail:         "内核连接跟踪表曾出现容量耗尽并提前驱逐活跃会话，直接引发业务偶发断连、Service 超时或 NAT 回包丢失。",
+			Title:          fmt.Sprintf("NAT 状态表满载驱逐连接 (early_drop=%d)", ct.EarlyDrop),
+			Detail:         "状态表曾打满并提前淘汰活跃连接，引发偶发断连",
 			KernelEvidence: ctEvidence,
-			Remediation:    "立即检查 dmesg | grep conntrack 并调大 net.netfilter.nf_conntrack_max 与 hashsize。",
+			Remediation:    "conntrack -S && dmesg | grep -i conntrack",
 		})
 	} else if ct.Drop > 0 || ct.InsertFailed > 0 {
 		isSevere := ct.Drop >= 100 || ct.InsertFailed >= 100 || ct.UsagePct >= 65
@@ -663,10 +663,10 @@ func evaluateKernelAuditFindings(
 			NodeName:       nodeName,
 			Severity:       sev,
 			Category:       "nat",
-			Title:          fmt.Sprintf("出向 NAT / UDP 端口复用曾发生 %d 次偶发冲突丢包", cnt),
-			Detail:         "多核并发通过 Calico SNAT 出集群或访问 CoreDNS (UDP:53) 时，源端口分配竞争会触发状态表插入冲突并丢弃个别报文（业务侧常表现为偶发 DNS 5 秒延迟或短连接重传）。当前表水位健康，属于低频并发竞态。",
+			Title:          fmt.Sprintf("NAT / UDP 端口竞争丢包 (%d 次)", cnt),
+			Detail:         "多核并发 SNAT 或 CoreDNS UDP:53 源端口冲突（可能引起偶发 DNS 5s 超时）",
 			KernelEvidence: ctEvidence,
-			Remediation:    "保持 Calico MASQUERADE --random-fully 开启；若业务 DNS 偶发 5 秒超时，建议部署 NodeLocal DNSCache 或在 resolv.conf 开启 single-request-reopen。",
+			Remediation:    "conntrack -S && iptables-save -t nat | grep cali-nat-outgoing",
 		})
 	}
 
@@ -678,10 +678,10 @@ func evaluateKernelAuditFindings(
 			NodeName:       nodeName,
 			Severity:       "warning",
 			Category:       "nat",
-			Title:          "出集群 SNAT (cali-nat-outgoing) 未启用全随机源端口 (--random-fully)",
-			Detail:         "Pod 访问集群外地址做 SNAT 转换时若未开启全随机源端口映射，高并发短连接更容易撞端口丢包。",
+			Title:          "SNAT 未开启全随机源端口 (--random-fully)",
+			Detail:         "高并发出集群 SNAT 短连接易触发源端口冲突丢包",
 			KernelEvidence: "iptables-save -t nat 中 cali-nat-outgoing MASQUERADE 规则缺少 --random-fully 参数",
-			Remediation:    "确认内核与 iptables 支持 --random-fully，并检查 Calico FelixConfiguration 未关闭该能力。",
+			Remediation:    "iptables-save -t nat | grep cali-nat-outgoing",
 		})
 	}
 
