@@ -671,11 +671,10 @@ export function HealthPage({ onLaunchTrace, initialFilterIntent }: HealthPagePro
             <table className="w-full text-xs">
               <thead className="bg-[#FAF6F1] dark:bg-[#25201C]/70 text-[#8C7F73] border-b border-[#F2ECE4] dark:border-[#2E2721]">
                 <tr>
-                  <th className="text-left px-4 py-2.5 font-medium">Service</th>
-                  <th className="text-left px-4 py-2.5 font-medium">ClusterIP / 声明端口</th>
-                  <th className="text-left px-4 py-2.5 font-medium">逐端口状态摘要</th>
-                  <th className="text-left px-4 py-2.5 font-medium">诊断结论</th>
-                  <th className="text-right px-4 py-2.5 font-medium">推荐下一步</th>
+                  <th className="text-left px-4 py-2.5 font-medium whitespace-nowrap">目标 Service</th>
+                  <th className="text-left px-4 py-2.5 font-medium whitespace-nowrap">ClusterIP</th>
+                  <th className="text-left px-4 py-2.5 font-medium whitespace-nowrap">逐端口检测结果</th>
+                  <th className="text-right px-4 py-2.5 font-medium whitespace-nowrap">下一步</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2ECE4] dark:divide-[#2E2721]">
@@ -689,27 +688,40 @@ export function HealthPage({ onLaunchTrace, initialFilterIntent }: HealthPagePro
 
                   return (
                     <React.Fragment key={key}>
-                      <tr className="hover:bg-[#FDF8F2] dark:hover:bg-[#25201C]/40">
-                        <td className="px-4 py-2.5">
+                      <tr className={`hover:bg-[#FDF8F2] dark:hover:bg-[#25201C]/40 ${isExp ? 'bg-[#FFFBF5] dark:bg-[#221C16]' : ''}`}>
+                        <td className="px-4 py-3 align-top">
                           <button
                             onClick={() => setExpandedSvc(isExp ? null : key)}
-                            className="flex items-center gap-1.5 font-mono font-semibold text-[#201B18] dark:text-[#F5F0EA] text-left hover:text-[#D9720B]"
+                            className="flex items-start gap-2 text-left group"
                           >
-                            {isExp ? (
-                              <ChevronDown className="w-3.5 h-3.5 text-[#8C7F73]" />
-                            ) : (
-                              <ChevronRight className="w-3.5 h-3.5 text-[#8C7F73]" />
-                            )}
-                            <span>{key}</span>
+                            <span className="mt-1 shrink-0">
+                              {isExp ? (
+                                <ChevronDown className="w-3.5 h-3.5 text-[#D9720B]" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5 text-[#8C7F73] group-hover:text-[#D9720B]" />
+                              )}
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block font-mono text-[11px] text-[#8C7F73] leading-tight">
+                                {svc.namespace}
+                              </span>
+                              <span className="block font-mono text-xs font-bold text-[#201B18] dark:text-[#F5F0EA] group-hover:text-[#D9720B] mt-0.5 whitespace-nowrap">
+                                {svc.name}
+                              </span>
+                            </span>
                           </button>
                         </td>
-                        <td className="px-4 py-2.5 font-mono text-[11px]">
-                          <div className="text-[#201B18] dark:text-[#F5F0EA]">{svc.clusterIP || 'None'}</div>
-                          <div className="text-[#8C7F73]">{(svc.ports || []).join(', ') || '—'}</div>
+                        <td className="px-4 py-3 font-mono text-[11px] align-top whitespace-nowrap">
+                          <div className="text-[#201B18] dark:text-[#F5F0EA]">
+                            {svc.clusterIP && svc.clusterIP !== 'None' ? svc.clusterIP : 'Headless'}
+                          </div>
+                          <div className="text-[10px] text-[#8C7F73] mt-0.5">
+                            {portChecks.length} 个声明端口
+                          </div>
                         </td>
-                        <td className="px-4 py-2.5">
+                        <td className="px-4 py-3 align-top">
                           <div className="space-y-1.5">
-                            <div className="flex flex-wrap items-center gap-1.5">
+                            <div className="flex flex-wrap items-center gap-2">
                               <StatusPill
                                 status={
                                   svc.statusLabel === '部分未测' || svc.statusLabel === '未测'
@@ -722,12 +734,12 @@ export function HealthPage({ onLaunchTrace, initialFilterIntent }: HealthPagePro
                                 compact
                               />
                               {svc.portSummary && (
-                                <span className="text-[11px] font-semibold text-[#201B18] dark:text-[#F5F0EA]">
+                                <span className="text-xs font-semibold text-[#201B18] dark:text-[#F5F0EA]">
                                   {svc.portSummary}
                                 </span>
                               )}
                             </div>
-                            <div className="flex flex-wrap items-center gap-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               {portChecks.map((pc, pi) => {
                                 const shortLbl =
                                   pc.shortOutcome ||
@@ -747,7 +759,7 @@ export function HealthPage({ onLaunchTrace, initialFilterIntent }: HealthPagePro
                                 return (
                                   <span
                                     key={pi}
-                                    className={`px-1.5 py-0.5 rounded font-mono text-[10px] border ${
+                                    className={`px-2 py-0.5 rounded font-mono text-[10px] border whitespace-nowrap ${
                                       pc.status === 'broken'
                                         ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900'
                                         : pc.status === 'degraded'
@@ -758,21 +770,17 @@ export function HealthPage({ onLaunchTrace, initialFilterIntent }: HealthPagePro
                                     }`}
                                   >
                                     {pc.servicePort}/{pc.protocol}: {shortLbl}
+                                    {pc.status === 'healthy' && pc.testedBackends > 0 ? ` (${pc.reachableBackends}/${pc.testedBackends})` : ''}
                                   </span>
                                 );
                               })}
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-2.5">
-                          <span className="text-[11px] text-[#574D44] dark:text-[#D5C9BC] block max-w-[360px]" title={svc.diagnosis}>
-                            {svc.diagnosis}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                        <td className="px-4 py-3 text-right align-top whitespace-nowrap">
                           <button
                             onClick={() => triggerEvidenceAction(svc.recommendedAction, svc, focusPort)}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${btnMeta.cls}`}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition ${btnMeta.cls}`}
                           >
                             {btnMeta.icon}
                             <span>{btnMeta.label}</span>
@@ -783,65 +791,73 @@ export function HealthPage({ onLaunchTrace, initialFilterIntent }: HealthPagePro
                       {/* Expanded Per-Port Exact Diagnosis Table */}
                       {isExp && (
                         <tr className="bg-[#FAF6F1] dark:bg-[#14110F]">
-                          <td colSpan={5} className="px-6 py-3.5">
-                            <div className="rounded-xl border border-[#E9E1D6] dark:border-[#2E2721] bg-white dark:bg-[#1C1815] overflow-hidden">
-                              <div className="px-3.5 py-2 bg-[#F7F3EE] dark:bg-[#25201C] border-b border-[#E9E1D6] dark:border-[#2E2721] flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                                <span className="font-semibold text-[#201B18] dark:text-[#F5F0EA]">
-                                  端口级探测明细（共 {portChecks.length} 个声明端口）
-                                </span>
-                                <span className="font-mono text-[#8C7F73]">
-                                  探测来源：{svc.probeSource || '—'}
+                          <td colSpan={4} className="px-5 py-3.5">
+                            <div className="rounded-xl border border-[#E5D8C8] dark:border-[#342B22] bg-white dark:bg-[#1C1815] overflow-hidden shadow-xs">
+                              <div className="px-4 py-2 bg-[#FFF8EE] dark:bg-[#251E17] border-b border-[#F2E2CC] dark:border-[#342B22] flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-bold text-[#6C4824] dark:text-[#FBB040]">
+                                    {svc.namespace}/{svc.name}
+                                  </span>
+                                  <span className="text-[#8C7F73]">
+                                    · 逐端口实测明细（{portChecks.length} 个端口）
+                                  </span>
+                                </div>
+                                <span
+                                  className="text-[10px] text-[#8C7F73] font-mono"
+                                  title={svc.probeSource || ''}
+                                >
+                                  探测发起节点：{svc.probeSourceNode || '集群探针'}
                                 </span>
                               </div>
                               <div className="overflow-x-auto">
                                 <table className="w-full text-[11px]">
                                   <thead className="bg-[#FAF6F1] dark:bg-[#25201C]/50 text-[#8C7F73] border-b border-[#F2ECE4] dark:border-[#2E2721]">
                                     <tr>
-                                      <th className="text-left px-3 py-2 font-medium">Service 端口</th>
-                                      <th className="text-left px-3 py-2 font-medium">映射后端端口</th>
-                                      <th className="text-left px-3 py-2 font-medium">探测来源</th>
-                                      <th className="text-left px-3 py-2 font-medium">ClusterIP 结果</th>
-                                      <th className="text-left px-3 py-2 font-medium">直连后端结果</th>
-                                      <th className="text-left px-3 py-2 font-medium">失败表现</th>
-                                      <th className="text-right px-3 py-2 font-medium">操作</th>
+                                      <th className="text-left px-4 py-2 font-medium whitespace-nowrap">端口映射</th>
+                                      <th className="text-left px-4 py-2 font-medium whitespace-nowrap">ClusterIP</th>
+                                      <th className="text-left px-4 py-2 font-medium whitespace-nowrap">后端 Pod 直连</th>
+                                      <th className="text-left px-4 py-2 font-medium whitespace-nowrap">检测结论</th>
+                                      <th className="text-right px-4 py-2 font-medium whitespace-nowrap">操作</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-[#F2ECE4] dark:divide-[#2E2721]">
                                     {portChecks.map((pc, pi) => {
                                       const pBtn = getActionButtonMeta(pc.recommendedAction, pc.status);
+                                      const targetStr =
+                                        pc.resolvedTargetPort > 0 ? String(pc.resolvedTargetPort) : pc.targetPort;
                                       return (
-                                        <React.Fragment key={pi}>
-                                          <tr className="hover:bg-[#FDF8F2] dark:hover:bg-[#25201C]/30">
-                                            <td className="px-3 py-2 font-mono font-semibold text-[#201B18] dark:text-[#F5F0EA]">
+                                        <tr key={pi} className="hover:bg-[#FDF8F2] dark:hover:bg-[#25201C]/30 align-top">
+                                          <td className="px-4 py-2.5 font-mono whitespace-nowrap">
+                                            <div className="font-semibold text-[#201B18] dark:text-[#F5F0EA]">
                                               {pc.servicePort}/{pc.protocol}
-                                              {pc.portName && <span className="text-[10px] text-[#8C7F73] ml-1">({pc.portName})</span>}
-                                            </td>
-                                            <td className="px-3 py-2 font-mono text-[#574D44] dark:text-[#D5C9BC]">
-                                              {pc.resolvedTargetPort > 0 ? `${pc.resolvedTargetPort}/${pc.protocol}` : pc.targetPort}
-                                            </td>
-                                            <td className="px-3 py-2 font-mono text-[10px] text-[#8C7F73]">
-                                              {pc.probeSource}
-                                            </td>
-                                            <td className="px-3 py-2 font-mono">
-                                              {pc.clusterIPState === 'ok' ? (
-                                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                                                  可达 ({pc.clusterIPLatencyMs}ms)
-                                                </span>
-                                              ) : pc.clusterIPState === 'failed' ? (
-                                                <span className="text-rose-600 dark:text-rose-400 font-semibold" title={pc.clusterIPError}>
-                                                  失败
-                                                </span>
-                                              ) : pc.clusterIPState === 'headless' ? (
-                                                <span className="text-[#8C7F73]">Headless (无 ClusterIP)</span>
-                                              ) : (
-                                                <span className="text-[#8C7F73]">未测</span>
-                                              )}
-                                            </td>
-                                            <td className="px-3 py-2 font-mono">
+                                              <span className="text-[#8C7F73] font-normal mx-1">→</span>
+                                              {targetStr}
+                                            </div>
+                                            {pc.portName && (
+                                              <div className="text-[10px] text-[#8C7F73] mt-0.5">{pc.portName}</div>
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-2.5 font-mono whitespace-nowrap">
+                                            {pc.clusterIPState === 'ok' ? (
+                                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                                可达 ({pc.clusterIPLatencyMs}ms)
+                                              </span>
+                                            ) : pc.clusterIPState === 'failed' ? (
+                                              <span className="text-rose-600 dark:text-rose-400 font-semibold" title={pc.clusterIPError}>
+                                                失败
+                                              </span>
+                                            ) : pc.clusterIPState === 'headless' ? (
+                                              <span className="text-[#8C7F73]">Headless</span>
+                                            ) : (
+                                              <span className="text-[#8C7F73]">未测</span>
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-2.5 font-mono">
+                                            <div>
                                               {pc.totalBackends === 0 ? (
                                                 <span className="text-[#8C7F73]">0 个后端</span>
                                               ) : pc.probeState === 'untested' ? (
-                                                <span className="text-[#8C7F73]">未测 (Ready {pc.readyBackends}/{pc.totalBackends})</span>
+                                                <span className="text-[#8C7F73]">未测（Ready {pc.readyBackends}/{pc.totalBackends}）</span>
                                               ) : (
                                                 <span
                                                   className={
@@ -852,81 +868,75 @@ export function HealthPage({ onLaunchTrace, initialFilterIntent }: HealthPagePro
                                                         : 'text-emerald-600 dark:text-emerald-400 font-semibold'
                                                   }
                                                 >
-                                                  {pc.reachableBackends}/{pc.testedBackends} 可达 (Ready {pc.readyBackends}/{pc.totalBackends})
+                                                  {pc.reachableBackends}/{pc.testedBackends} 可达（Ready {pc.readyBackends}/{pc.totalBackends}）
                                                 </span>
                                               )}
-                                            </td>
-                                            <td className="px-3 py-2">
-                                              <span
-                                                className={
-                                                  pc.status === 'broken'
-                                                    ? 'text-rose-700 dark:text-rose-300 font-semibold'
-                                                    : pc.status === 'degraded'
-                                                      ? 'text-[#9E4A05] dark:text-[#FBB040] font-semibold'
-                                                      : pc.status === 'untested'
-                                                        ? 'text-[#8C7F73]'
-                                                        : 'text-emerald-700 dark:text-emerald-400'
-                                                }
-                                              >
-                                                {pc.failureSummary || '—'}
-                                              </span>
-                                            </td>
-                                            <td className="px-3 py-2 text-right whitespace-nowrap">
-                                              <div className="inline-flex items-center gap-1.5">
-                                                <button
-                                                  onClick={() => triggerEvidenceAction(pc.recommendedAction, svc, pc.servicePort, pc.probeSourcePod)}
-                                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition ${pBtn.cls}`}
-                                                >
-                                                  {pBtn.label}
-                                                </button>
-                                                {(pc.status === 'broken' || pc.status === 'degraded') && (
-                                                  <button
-                                                    onClick={() => handleSavePortIncident(svc, pc)}
-                                                    className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-medium bg-[#F7F3EE] dark:bg-[#25201C] text-[#574D44] dark:text-[#D5C9BC] border border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#F08C18]"
-                                                    title="保存为可复测故障现场"
+                                            </div>
+                                            {pc.backends.length > 0 && (
+                                              <div className="mt-1.5 space-y-1">
+                                                {pc.backends.map((be, bi) => (
+                                                  <div
+                                                    key={`${be.podIP}-${be.targetPort}-${bi}`}
+                                                    className="inline-flex flex-wrap items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#FAF6F1] dark:bg-[#14110F] border border-[#EAE0D5] dark:border-[#2E2721] text-[10px] mr-1.5"
                                                   >
-                                                    <BookmarkPlus className="w-3 h-3" /> 留存现场
-                                                  </button>
-                                                )}
+                                                    <span className="font-semibold text-[#201B18] dark:text-[#F5F0EA]">
+                                                      {be.podName || be.podIP}
+                                                    </span>
+                                                    <span className="text-[#8C7F73]">
+                                                      {be.podIP}:{be.targetPort}
+                                                    </span>
+                                                    <StatusPill status={be.k8sReady ? 'Ready' : 'NotReady'} compact />
+                                                    {be.probeState === 'untested' ? (
+                                                      <span className="text-[#8C7F73]">未测</span>
+                                                    ) : be.probeOk ? (
+                                                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                                        ✓ {be.latencyMs}ms
+                                                      </span>
+                                                    ) : (
+                                                      <span className="text-rose-600 dark:text-rose-400 font-semibold" title={be.error}>
+                                                        ✕ 失败
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                ))}
                                               </div>
-                                            </td>
-                                          </tr>
-                                          {/* Individual backends under this port */}
-                                          {pc.backends.length > 0 && (
-                                            <tr className="bg-[#FCF9F4] dark:bg-[#161310]">
-                                              <td colSpan={7} className="px-6 py-2">
-                                                <div className="flex flex-wrap gap-2">
-                                                  {pc.backends.map((be, bi) => (
-                                                    <div
-                                                      key={`${be.podIP}-${be.targetPort}-${bi}`}
-                                                      className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] font-mono text-[10px]"
-                                                    >
-                                                      <span className="font-semibold text-[#201B18] dark:text-[#F5F0EA]">
-                                                        {be.podName ? `${be.podNamespace}/${be.podName}` : be.podIP}
-                                                      </span>
-                                                      <span className="text-[#8C7F73]">
-                                                        {be.podIP}:{be.targetPort}
-                                                        {be.nodeName ? ` @ ${be.nodeName}` : ''}
-                                                      </span>
-                                                      <StatusPill status={be.k8sReady ? 'Ready' : 'NotReady'} compact />
-                                                      {be.probeState === 'untested' ? (
-                                                        <span className="text-[#8C7F73]">未测</span>
-                                                      ) : be.probeOk ? (
-                                                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                                                          ✓ {be.latencyMs}ms
-                                                        </span>
-                                                      ) : (
-                                                        <span className="text-rose-600 dark:text-rose-400 font-semibold" title={be.error}>
-                                                          ✕ {be.failureLabel || 'FAIL'}
-                                                        </span>
-                                                      )}
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              </td>
-                                            </tr>
-                                          )}
-                                        </React.Fragment>
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-2.5 whitespace-nowrap">
+                                            <span
+                                              className={
+                                                pc.status === 'broken'
+                                                  ? 'text-rose-700 dark:text-rose-300 font-semibold'
+                                                  : pc.status === 'degraded'
+                                                    ? 'text-[#9E4A05] dark:text-[#FBB040] font-semibold'
+                                                    : pc.status === 'untested'
+                                                      ? 'text-[#8C7F73]'
+                                                      : 'text-emerald-700 dark:text-emerald-400 font-medium'
+                                              }
+                                            >
+                                              {pc.failureSummary || '—'}
+                                            </span>
+                                          </td>
+                                          <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                                            <div className="inline-flex items-center gap-1.5">
+                                              <button
+                                                onClick={() => triggerEvidenceAction(pc.recommendedAction, svc, pc.servicePort, pc.probeSourcePod)}
+                                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition ${pBtn.cls}`}
+                                              >
+                                                {pBtn.label}
+                                              </button>
+                                              {(pc.status === 'broken' || pc.status === 'degraded') && (
+                                                <button
+                                                  onClick={() => handleSavePortIncident(svc, pc)}
+                                                  className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] font-medium bg-[#F7F3EE] dark:bg-[#25201C] text-[#574D44] dark:text-[#D5C9BC] border border-[#E9E1D6] dark:border-[#2E2721] hover:border-[#F08C18]"
+                                                  title="保存为可复测故障现场"
+                                                >
+                                                  <BookmarkPlus className="w-3 h-3" /> 留存
+                                                </button>
+                                              )}
+                                            </div>
+                                          </td>
+                                        </tr>
                                       );
                                     })}
                                   </tbody>
