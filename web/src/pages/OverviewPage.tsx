@@ -125,7 +125,7 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
       </div>
 
       {/* Node Dataplane & Adaptive Telemetry Matrix */}
-      <SectionCard title="集群节点与自适应流量采集引擎">
+      <SectionCard title="节点与采集引擎">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-[#FAF6F1] dark:bg-[#25201C]/70 text-[#8C7F73] dark:text-[#A39587] border-b border-[#F2ECE4] dark:border-[#2E2721]">
@@ -205,7 +205,7 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
       {/* Bottom 2-column Grid: IPPools & BGP Mesh */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SectionCard
-          title="Calico IPPool 分配概览"
+          title="IPPool 分配"
           action={
             <button
               onClick={() => onNavigate('ipam')}

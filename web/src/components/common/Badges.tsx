@@ -66,12 +66,14 @@ export function StatusPill({ status, label, compact = false }: { status: string;
 
 export function SectionCard({
   title,
+  badge,
   subtitle,
   action,
   children,
   className = '',
 }: {
   title?: string;
+  badge?: string | number;
   subtitle?: string;
   action?: React.ReactNode;
   children: React.ReactNode;
@@ -79,13 +81,24 @@ export function SectionCard({
 }) {
   return (
     <div
-      className={`bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] rounded-xl shadow-[0_1px_3px_rgba(44,30,18,0.035)] ${className}`}
+      className={`bg-white dark:bg-[#1C1815] border border-[#E5D8C8] dark:border-[#342B22] rounded-xl shadow-[0_2px_8px_rgba(68,42,16,0.045)] overflow-hidden ${className}`}
     >
       {(title || action) && (
-        <div className="px-4 py-3 border-b border-[#F2ECE4] dark:border-[#2A231D] bg-gradient-to-b from-white to-[#FDFBF8] dark:from-[#201B17] dark:to-[#1C1815] rounded-t-xl flex items-center justify-between gap-3">
-          <div>
-            {title && <h3 className="text-sm font-bold text-[#201B18] dark:text-[#F5F0EA]">{title}</h3>}
-            {subtitle && <p className="text-xs text-[#6E6257] dark:text-[#A39587] mt-0.5">{subtitle}</p>}
+        <div className="px-4 py-3 border-b border-[#FAD4A1]/80 dark:border-[#F08C18]/35 bg-gradient-to-r from-[#FFF3DF] via-[#FFF9F0] to-[#FFFDF9] dark:from-[#2B2014] dark:via-[#221A13] dark:to-[#1C1815] flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            {title && (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#F08C18] text-white text-[13px] font-bold tracking-tight shadow-xs">
+                  {title}
+                </span>
+                {badge !== undefined && badge !== '' && (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-white/95 dark:bg-[#1C1815] text-[#9E4A05] dark:text-[#FBB040] border border-[#FAD4A1] dark:border-[#F08C18]/45">
+                    {badge}
+                  </span>
+                )}
+              </div>
+            )}
+            {subtitle && <p className="text-[11px] text-[#7A6A5B] dark:text-[#A39587] mt-1">{subtitle}</p>}
           </div>
           {action}
         </div>

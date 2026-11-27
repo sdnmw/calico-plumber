@@ -512,7 +512,7 @@ export function AuditPage() {
         <div className="space-y-4">
           {/* 1. Calico Network Mode & MTU Encapsulation Visual Chain */}
           <SectionCard
-            title="Calico 网络模式与 MTU 封装链路"
+            title="网络模式与 MTU 链路"
             subtitle="不同封装模式决定外层包头开销（BGP 直连 0B / IPIP 20B / VXLAN 50B），直接影响容器与物理网口 MTU 对齐关系"
             action={
               <div className="flex items-center gap-2 text-[11px] font-mono">

@@ -247,7 +247,7 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
     crossFailed > 0 || report.serviceBackends.brokenServices > 0 || report.serviceBackends.degradedServices > 0;
 
   return (
-    <div className="p-6 space-y-5 max-w-[1600px] mx-auto">
+    <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Page Title + Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -467,8 +467,9 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
           className={`scroll-mt-20 rounded-xl transition ${highlightSection === 'matrix' ? 'ring-2 ring-[#F08C18]' : ''}`}
         >
           <SectionCard
-            title={`跨节点探针双向连通矩阵（跨节点 ${crossHealthy}/${crossTotal}）`}
-            subtitle="非对角格为跨节点两探针实测；对角格源/目标 IP 相同，仅代表「探针自身检查」（若需证明同节点两不同 Pod 互通，请在 TraceFlow 中选择该节点两个不同 Pod）"
+            title="跨节点探针矩阵"
+            badge={`${crossHealthy}/${crossTotal}`}
+            subtitle="非对角格为跨节点实测；对角格为探针自身检查（同节点两 Pod 互通请在 TraceFlow 中实测）"
           >
             <div className="p-4 overflow-x-auto">
               {matrixNodes.length > 0 ? (
@@ -551,7 +552,7 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
           ref={infraSectionRef}
           className={`scroll-mt-20 rounded-xl transition ${highlightSection === 'infra' ? 'ring-2 ring-[#F08C18]' : ''}`}
         >
-          <SectionCard title="Calico 底座、Pod-Node 与 CoreDNS 巡检明细">
+          <SectionCard title="基础设施与 CoreDNS">
             <div className="p-4 space-y-4">
               <div className="space-y-2">
                 {infraChecks.map((c, idx) => (
@@ -616,8 +617,9 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
         className={`scroll-mt-20 rounded-xl transition ${highlightSection === 'services' ? 'ring-2 ring-rose-500/70' : ''}`}
       >
         <SectionCard
-          title={`全集群 Service 逐端口健康审计 (${report.serviceBackends.totalServices})`}
-          subtitle="点击任意 Service 展开逐端口探测结果，右侧按异常原因提供对应核验入口"
+          title="集群 Service 检测"
+          badge={report.serviceBackends.totalServices}
+          subtitle="点击任意 Service 查看逐端口明细与对应核验入口"
           action={
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -911,8 +913,9 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
         className={`scroll-mt-20 rounded-xl transition ${highlightSection === 'incidents' ? 'ring-2 ring-[#F08C18]' : ''}`}
       >
         <SectionCard
-          title={`偶发故障现场留存与复测对比 (${incidents.length})`}
-          subtitle="记录失败端口的首次/最近出现时间与周边变更时间轴，支持同条件复测对比"
+          title="偶发故障概览"
+          badge={incidents.length}
+          subtitle="自动记录失败端口与周边变更时间轴，支持同条件复测"
           action={
             savedNotice ? (
               <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{savedNotice}</span>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   RefreshCw,
@@ -117,8 +118,8 @@ export function ServiceDiagDrawer({
     compare: '双来源路径与 Calico/K8s 策略对比',
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-[#14110F]/45 backdrop-blur-[1px]" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] m-0 flex justify-end bg-[#14110F]/45 backdrop-blur-[1px]" onClick={onClose}>
       <div
         className="w-full max-w-3xl bg-white dark:bg-[#1C1815] h-full shadow-2xl border-l border-[#E9E1D6] dark:border-[#2E2721] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -546,7 +547,8 @@ export function ServiceDiagDrawer({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

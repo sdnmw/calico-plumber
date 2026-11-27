@@ -516,7 +516,7 @@ export function TraceFlowPage({ initialReq, returnTopologyCtx, onReturnTopology 
       {!result && (
         <div className="space-y-4">
           <SectionCard
-            title="快速发起典型 Calico 排障场景"
+            title="常用排障场景"
             subtitle="点击任一场景卡片即自动填充参数并立即执行实时多跳 TraceFlow"
           >
             <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
@@ -673,7 +673,7 @@ export function TraceFlowPage({ initialReq, returnTopologyCtx, onReturnTopology 
 
           {/* Layered Node-Stack Dataplane Topology (Default) / Optional Linear Pipeline */}
           <SectionCard
-            title="数据面分层拓扑路径视图（Node / OS / Kernel / vNIC / Container）"
+            title="分层路径视图"
             subtitle="按真实宿主机分层结构（容器 → OS 用户态/内核态 → 虚拟网卡/隧道 → 物理网卡 → Node 底层）还原报文流向，点击任意跳点查看实时抓包与规则明细"
             action={
               <div className="flex items-center gap-2 shrink-0">
@@ -832,7 +832,7 @@ export function TraceFlowPage({ initialReq, returnTopologyCtx, onReturnTopology 
 
           {/* Bottom Grid: Observations Table + Trace History */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-            <SectionCard title="逐跳观测日志（Observations）" className="xl:col-span-2">
+            <SectionCard title="逐跳观测日志" className="xl:col-span-2">
               <div className="overflow-x-auto max-h-[340px]">
                 <table className="w-full text-[11px] font-mono">
                   <thead className="bg-slate-50 dark:bg-slate-800/70 text-slate-500 sticky top-0">

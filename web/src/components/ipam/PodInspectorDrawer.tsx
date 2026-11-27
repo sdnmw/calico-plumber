@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Route, Terminal, Activity, Globe, Shield, Network, Server, RefreshCw } from 'lucide-react';
 import { api } from '../../api/client';
 import type { PodNetworkDetail, TraceFlowRequest } from '../../api/types';
@@ -37,8 +38,8 @@ export function PodInspectorDrawer({
     load();
   }, [namespace, podName]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-[#14110F]/40 backdrop-blur-[1px]" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] m-0 flex justify-end bg-[#14110F]/45 backdrop-blur-[1px]" onClick={onClose}>
       <div
         className="w-full max-w-xl bg-white dark:bg-[#1C1815] h-full shadow-2xl border-l border-[#E9E1D6] dark:border-[#2E2721] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -252,7 +253,8 @@ export function PodInspectorDrawer({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -414,7 +414,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
 
           {/* Step 2: Pick Source Workload/Pod & Target Service (auto-fills port) */}
           <SectionCard
-            title="选择源 Pod 与目标服务"
+            title="排障目标"
             subtitle="选定目标 Service 后自动填充其声明端口"
           >
             <div className="p-4 space-y-3">
@@ -528,7 +528,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
           {/* Step 3: Actionable Guided Verdict & Single Recommended Next Step */}
           {(guidedCompare || guidedTcp || guidedInspect) && (
             <SectionCard
-              title="诊断结果与建议操作"
+              title="诊断结论"
               subtitle="区分「实际观测到」（实时探测 / 容器监听）与「按配置推算」（NetworkPolicy 规则）"
             >
               <div className="p-4 space-y-4">
@@ -751,7 +751,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
       {/* TAB 1: LIVE TCPDUMP */}
       {activeTool === 'tcpdump' && (
         <SectionCard
-          title="TCPdump 实时抓包终端"
+          title="TCPdump 抓包"
           subtitle={dumpStatus || '支持标准 BPF 过滤语法，抓包结束后可一键下载原始 .pcap 文件使用 Wireshark 深度分析'}
           action={
             pcapReady && captureId && selectedPodObj ? (
@@ -974,7 +974,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
           </SectionCard>
 
           {tcpResult && (
-            <SectionCard title="TCP 三次握手时序诊断报告" subtitle={tcpResult.diagnosis}>
+            <SectionCard title="TCP 握手检测" subtitle={tcpResult.diagnosis}>
               <div className="p-4 space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs font-mono">
                   <StatPill label="成功率" value={`${tcpResult.successCount}/${tcpResult.totalCount}`} ok={tcpResult.successCount === tcpResult.totalCount} />
@@ -1088,7 +1088,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
           </SectionCard>
 
           {httpResult && (
-            <SectionCard title="HTTP / HTTPS 全链路耗时瀑布流" subtitle={httpResult.diagnosis}>
+            <SectionCard title="HTTP 链路耗时" subtitle={httpResult.diagnosis}>
               <div className="p-4 space-y-4">
                 <div className="flex flex-wrap items-center gap-3">
                   {httpResult.success ? (

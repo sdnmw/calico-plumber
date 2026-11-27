@@ -179,7 +179,7 @@ export function IpamSearchPage({
 
       {/* Per-Node IPAM Block Heatmap */}
       <SectionCard
-        title="节点 IPAM Block 分配热力图"
+        title="IPAM Block 热力图"
         subtitle="悬停任意 IP 格查看归属 Pod / 工作负载，点击直接打开 Pod 数据面详情与一键排障"
         action={
           <div className="flex items-center gap-3 text-[11px] text-[#574D44] dark:text-[#A39587]">
@@ -269,7 +269,7 @@ export function IpamSearchPage({
 
       {/* Unified Omni-Search & Asset Directory */}
       <SectionCard
-        title="全维度资产检索（IP / Pod / Deployment / StatefulSet / DaemonSet / Service / Node）"
+        title="集群资产检索"
         subtitle="支持精确 IP、网段前缀、工作负载名称、Service ClusterIP/NodePort 及标签键值搜索"
       >
         <div className="p-4 border-b border-[#F2ECE4] dark:border-[#2E2721] flex flex-wrap items-center gap-3">
