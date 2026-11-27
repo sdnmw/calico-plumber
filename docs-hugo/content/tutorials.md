@@ -54,7 +54,7 @@ kubectl -n calico-netdiag set env ds/calico-netdiag-agent TELEMETRY_MODE=auto
    - 报文停在源节点 `Calico Egress Policy` → 检查源 Pod 命中的 Egress NetworkPolicy；
    - 报文已从源 `Host NIC` 发出但目标 `Host NIC` 未收到 → 检查物理交换机 BGP 路由、云防火墙是否放行 IPIP（IP 协议 4）或 VXLAN（UDP 4789）；
    - 报文到达目标 `Host NIC` 但未进入目标 `cali* veth` → 检查目标 Pod 的 Ingress NetworkPolicy；
-   - 返回黄色 `RESET` → 网络完全打通，目标容器进程未监听对应端口。
+   - 返回黄色 `RESET` → 连接被拒绝（收到 TCP RST），下一步请核对目标端口监听状态与 RST 的返回位置（可在 **全局健康 → 集群 Service 检测** 中点击 **「核对目标端口与监听状态」**，或在 TraceFlow 逐跳观测日志中确认发出 RST 的节点与接口）。
 
 ### 场景二：访问 Service ClusterIP 失败，如何精确判断到「谁访问哪个端口」？
 

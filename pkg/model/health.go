@@ -124,6 +124,14 @@ type ServiceHealthDetail struct {
 	ProbeSourcePod     string                  `json:"probeSourcePod,omitempty"`
 	ProbeSourceNode    string                  `json:"probeSourceNode,omitempty"`
 	Status             string                  `json:"status"` // healthy, degraded, broken, no-endpoints, untested
+	StatusLabel        string                  `json:"statusLabel,omitempty"` // 全部通过, 部分未测, 部分端口异常, 全部端口失败, 降级, 无后端
+	PortSummary        string                  `json:"portSummary,omitempty"` // e.g. "3 个端口：1 通、2 拒绝" or "2 个 TCP 端口通过，1 个 UDP 端口未测"
+	TotalPorts         int                     `json:"totalPorts,omitempty"`
+	TestedPorts        int                     `json:"testedPorts,omitempty"`
+	HealthyPorts       int                     `json:"healthyPorts,omitempty"`
+	FailedPorts        int                     `json:"failedPorts,omitempty"`
+	DegradedPorts      int                     `json:"degradedPorts,omitempty"`
+	UntestedPorts      int                     `json:"untestedPorts,omitempty"`
 	TotalBackends      int                     `json:"totalBackends"`
 	ReadyBackends      int                     `json:"readyBackends"`
 	ReachableBackends  int                     `json:"reachableBackends"`
@@ -156,8 +164,9 @@ type ServicePortHealth struct {
 	ReadyBackends      int                     `json:"readyBackends"`
 	TestedBackends     int                     `json:"testedBackends"`
 	ReachableBackends  int                     `json:"reachableBackends"`
-	FailureKind        string                  `json:"failureKind,omitempty"` // connection_refused, timeout, no_route, untested, other
+	FailureKind        string                  `json:"failureKind,omitempty"` // connection_refused, timeout, no_route, not_ready_backends, untested, other
 	FailureSummary     string                  `json:"failureSummary"`
+	ShortOutcome       string                  `json:"shortOutcome,omitempty"` // 通, 拒绝, 超时, 失败, 降级, 未测, 无后端
 	Status             string                  `json:"status"` // healthy, degraded, broken, no-endpoints, untested
 	Diagnosis          string                  `json:"diagnosis"`
 	RecommendedAction  string                  `json:"recommendedAction"`

@@ -1057,7 +1057,7 @@ func StitchTraceResult(in StitchInput) *model.TraceFlowResult {
 		res.VerdictSummary = fmt.Sprintf("端到端路径可达 (%s)，已通过 %d 个数据面跳点观测确认，往返耗时 %.2f ms", in.EncapMode, len(hops), res.TotalLatencyMs)
 	case "RST_REFUSED":
 		res.Status = "RESET"
-		res.VerdictSummary = fmt.Sprintf("网络路径全部连通，但目标 %s:%d 返回 TCP RST (端口未监听)", in.Destination.IP, in.DstPort)
+		res.VerdictSummary = fmt.Sprintf("连接被拒绝：访问 %s:%d 收到 TCP RST，下一步请核对目标端口监听状态与逐跳日志中 RST 的返回位置", in.Destination.IP, in.DstPort)
 		res.RootCauseHint = "Calico 路由、隧道与 NetworkPolicy 均已放行；请检查目标 Pod 进程是否正在监听该端口或 Service targetPort 配置是否正确。"
 	case "SENT": // UDP
 		if hasAny(fwd, "dst_pod_eth0", "dst_host_lo") || len(ret) > 0 {

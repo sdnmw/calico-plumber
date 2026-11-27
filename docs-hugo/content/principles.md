@@ -67,7 +67,7 @@ Calico IPAM 以固定大小 CIDR Block（默认 `/26` = 64 IP）分配给节点�
    - 若正向报文在 `src_cali_veth` 可见但未离开 `src_phy_nic` → 定位为 **源节点 Egress NetworkPolicy 拦截或缺少路由**，后续不可达跳点统一标记为 `SKIPPED`；
    - 若已离开 `src_phy_nic` 但未到达 `dst_phy_nic` → 定位为 **底层物理网络 / 防火墙 / 隧道端口（IP Proto 4 或 UDP 4789）阻断**；
    - 若已到达 `dst_phy_nic` 但未进入 `dst_cali_veth` → 定位为 **目标节点 Ingress NetworkPolicy 拦截或解封装/本地路由异常**；
-   - 若收到 `TCP RST` → 明确区分网络层全通、仅目标端口未监听；
+   - 若收到 `TCP RST` → 表明连接被拒绝，可结合返回跳点定位 RST 的返回位置，并进一步核对目标容器端口监听状态；
    - 针对访问集群外部 IP 时 Calico `cali-nat-outgoing` 执行 `MASQUERADE --random-fully` 导致的源端口/ICMP ID 随机改写，以及访问 `hostNetwork` Service（如 `kubernetes:443` 走 `lo` 环回）和多副本 Service 场景，解析器自动按宿主机 IP + 目的地址/端口进行 SNAT 关联与后端匹配，杜绝假阳性 `DROPPED`。
 5. **垂直分层宿主机拓扑与逐跳回放**：前端按真实宿主机软件栈结构绘制双节点拓扑（底层 `Node` → `物理网卡层` → `OS 内核态（虚拟交换/隧道、路由表、策略、cali* veth）` + `OS 用户态（calico-node / kube-proxy）` → `容器层（Pod eth0）`），支持默认静态浏览历史记录，执行新追踪或点击 **逐跳演示** 时按实际报文流向（源节点下行 → 物理网络 → 目标节点上行）逐步动画演示。
 

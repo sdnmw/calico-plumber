@@ -89,14 +89,26 @@ func (s *Store) IngestHealthReport(rep *model.GlobalHealthReport) {
 			}
 
 			srcNS, srcPod := splitNSName(pc.ProbeSourcePod)
+			cleanFailSummary := normalizeInitialFailureSummary(pc)
+			backendState := formatInitialBackendState(pc)
 
 			if id, ok := s.byKey[key]; ok {
 				inc := s.incidents[id]
 				inc.LastSeenAt = now
 				inc.FailureCount++
 				inc.Status = "active"
-				inc.FailureKind = pc.FailureKind
-				inc.FailureSummary = pc.FailureSummary
+				inc.RecoveredAt = nil
+				inc.RecoveryNarrative = ""
+				if pc.FailureKind != "" {
+					inc.FailureKind = pc.FailureKind
+				}
+				inc.FailureSummary = cleanFailSummary
+				if inc.InitialFailureSummary == "" || inc.InitialFailureSummary == "正常" {
+					inc.InitialFailureSummary = cleanFailSummary
+				}
+				if inc.InitialBackendState == "" {
+					inc.InitialBackendState = backendState
+				}
 				inc.TargetBackendPod = firstPod
 				inc.TargetBackendIP = firstIP
 				inc.TargetBackendNode = firstNode
@@ -104,32 +116,39 @@ func (s *Store) IngestHealthReport(rep *model.GlobalHealthReport) {
 			} else {
 				s.seq++
 				id := fmt.Sprintf("inc-%s-%03d", now.Format("150405"), s.seq)
+				statusWord := "失败"
+				if pc.Status == "degraded" {
+					statusWord = "降级"
+				}
 				inc := &model.IncidentSnapshot{
-					ID:                id,
-					Key:               key,
-					Title:             fmt.Sprintf("%s/%s:%d/%s %s", svc.Namespace, svc.Name, pc.ServicePort, pc.Protocol, pc.FailureSummary),
-					Kind:              "service_port",
-					Status:            "active",
-					FirstSeenAt:       now,
-					LastSeenAt:        now,
-					FailureCount:      1,
-					SrcNamespace:      srcNS,
-					SrcPod:            srcPod,
-					SrcNode:           pc.ProbeSourceNode,
-					TargetNamespace:   svc.Namespace,
-					TargetService:     svc.Name,
-					TargetClusterIP:   svc.ClusterIP,
-					TargetBackendPod:  firstPod,
-					TargetBackendIP:   firstIP,
-					TargetBackendNode: firstNode,
-					ServicePort:       pc.ServicePort,
-					BackendPort:       pc.ResolvedTargetPort,
-					Protocol:          pc.Protocol,
-					InitialResult:     pc.Status,
-					FailureKind:       pc.FailureKind,
-					FailureSummary:    pc.FailureSummary,
-					InitialLatencyMs:  pc.ClusterIPLatencyMs,
-					InitialBackends:   backendNames,
+					ID:                    id,
+					Key:                   key,
+					Title:                 fmt.Sprintf("%s/%s:%d/%s · 首次%s（%s）", svc.Namespace, svc.Name, pc.ServicePort, pc.Protocol, statusWord, cleanFailSummary),
+					Kind:                  "service_port",
+					Status:                "active",
+					FirstSeenAt:           now,
+					LastSeenAt:            now,
+					FailureCount:          1,
+					SrcNamespace:          srcNS,
+					SrcPod:                srcPod,
+					SrcNode:               pc.ProbeSourceNode,
+					TargetNamespace:       svc.Namespace,
+					TargetService:         svc.Name,
+					TargetClusterIP:       svc.ClusterIP,
+					TargetBackendPod:      firstPod,
+					TargetBackendIP:       firstIP,
+					TargetBackendNode:     firstNode,
+					ServicePort:           pc.ServicePort,
+					BackendPort:           pc.ResolvedTargetPort,
+					Protocol:              pc.Protocol,
+					InitialResult:         pc.Status,
+					InitialStatus:         pc.Status,
+					InitialFailureSummary: cleanFailSummary,
+					InitialBackendState:   backendState,
+					FailureKind:           pc.FailureKind,
+					FailureSummary:        cleanFailSummary,
+					InitialLatencyMs:      pc.ClusterIPLatencyMs,
+					InitialBackends:       backendNames,
 				}
 				inc.Timeline = s.collectTimeline(now, now, srcNS, svc.Namespace, svc.Name, firstPod)
 				s.incidents[id] = inc
@@ -144,11 +163,15 @@ func (s *Store) IngestHealthReport(rep *model.GlobalHealthReport) {
 			continue
 		}
 		if inc, ok := s.incidents[id]; ok && inc.Status == "active" {
+			recTime := now
+			inc.RecoveredAt = &recTime
 			if inc.FailureCount > 1 {
 				inc.Status = "intermittent"
 			} else {
 				inc.Status = "recovered"
 			}
+			inc.Timeline = s.collectTimeline(inc.FirstSeenAt, now, inc.SrcNamespace, inc.TargetNamespace, inc.TargetService, inc.TargetBackendPod)
+			inc.RecoveryNarrative = BuildRecoveryNarrative(*inc)
 		}
 	}
 
@@ -200,30 +223,37 @@ func (s *Store) CreateManual(req model.CreateIncidentRequest) model.IncidentSnap
 	s.seq++
 	id := fmt.Sprintf("inc-%s-%03d", now.Format("150405"), s.seq)
 	key := fmt.Sprintf("manual|%s|%s/%s:%d", id, req.TargetNamespace, req.TargetService, req.ServicePort)
+	cleanManualSummary := strings.TrimSpace(req.FailureSummary)
+	if cleanManualSummary == "" || cleanManualSummary == "正常" {
+		cleanManualSummary = "原因待确认"
+	}
 	inc := &model.IncidentSnapshot{
-		ID:               id,
-		Key:              key,
-		Title:            title,
-		Kind:             kind,
-		Status:           "active",
-		FirstSeenAt:      now,
-		LastSeenAt:       now,
-		FailureCount:     1,
-		SrcNamespace:     req.SrcNamespace,
-		SrcPod:           req.SrcPod,
-		TargetNamespace:  req.TargetNamespace,
-		TargetService:    req.TargetService,
-		TargetClusterIP:  req.TargetClusterIP,
-		TargetBackendPod: req.TargetBackendPod,
-		TargetBackendIP:  req.TargetBackendIP,
-		ServicePort:      req.ServicePort,
-		BackendPort:      req.BackendPort,
-		Protocol:         proto,
-		InitialResult:    "failed",
-		FailureKind:      req.FailureKind,
-		FailureSummary:   req.FailureSummary,
-		InitialLatencyMs: req.InitialLatencyMs,
-		InitialBackends:  backends,
+		ID:                    id,
+		Key:                   key,
+		Title:                 title,
+		Kind:                  kind,
+		Status:                "active",
+		FirstSeenAt:           now,
+		LastSeenAt:            now,
+		FailureCount:          1,
+		SrcNamespace:          req.SrcNamespace,
+		SrcPod:                req.SrcPod,
+		TargetNamespace:       req.TargetNamespace,
+		TargetService:         req.TargetService,
+		TargetClusterIP:       req.TargetClusterIP,
+		TargetBackendPod:      req.TargetBackendPod,
+		TargetBackendIP:       req.TargetBackendIP,
+		ServicePort:           req.ServicePort,
+		BackendPort:           req.BackendPort,
+		Protocol:              proto,
+		InitialResult:         "failed",
+		InitialStatus:         "failed",
+		InitialFailureSummary: cleanManualSummary,
+		InitialBackendState:   fmt.Sprintf("端口 %d/%s · 记录后端 %d 个", req.ServicePort, proto, len(backends)),
+		FailureKind:           req.FailureKind,
+		FailureSummary:        cleanManualSummary,
+		InitialLatencyMs:      req.InitialLatencyMs,
+		InitialBackends:       backends,
 	}
 	inc.Timeline = s.collectTimeline(now, now, req.SrcNamespace, req.TargetNamespace, req.TargetService, req.TargetBackendPod)
 	s.incidents[id] = inc
@@ -239,6 +269,9 @@ func (s *Store) List(ctx context.Context) []model.IncidentSnapshot {
 	for _, inc := range s.incidents {
 		cp := *inc
 		cp.Timeline = s.collectTimelineWithK8sEvents(ctx, inc.FirstSeenAt, inc.LastSeenAt, inc.SrcNamespace, inc.TargetNamespace, inc.TargetService, inc.TargetBackendPod)
+		if cp.Status == "recovered" || cp.Status == "intermittent" {
+			cp.RecoveryNarrative = BuildRecoveryNarrative(cp)
+		}
 		out = append(out, cp)
 	}
 	s.mu.RUnlock()
@@ -279,24 +312,44 @@ func (s *Store) Retest(ctx context.Context, id string) (*model.IncidentSnapshot,
 		backendPort = snap.ServicePort
 	}
 	var currBackends []string
+	var firstLiveIP, firstReadyIP string
+	origIPStillLive := false
 	if s.k8sStore != nil && snap.TargetNamespace != "" && snap.TargetService != "" {
 		if svc, _, slices, _, exists := s.k8sStore.InspectServiceState(snap.TargetNamespace, snap.TargetService); exists {
 			clusterIP = svc.Spec.ClusterIP
 			for _, sl := range slices {
 				for _, ep := range sl.Endpoints {
+					isReady := ep.Ready == nil || *ep.Ready
 					for _, a := range ep.Addresses {
 						lbl := a
 						if ep.TargetPod != "" {
 							lbl = fmt.Sprintf("%s (%s)", ep.TargetPod, a)
 						}
 						currBackends = append(currBackends, lbl)
-						if backendIP == "" {
-							backendIP = a
+						if a == backendIP {
+							origIPStillLive = true
+						}
+						if firstLiveIP == "" {
+							firstLiveIP = a
+						}
+						if isReady && firstReadyIP == "" {
+							firstReadyIP = a
 						}
 					}
 				}
 			}
 		}
+	}
+	replacedBackendNote := ""
+	if !origIPStillLive && (firstReadyIP != "" || firstLiveIP != "") {
+		liveIP := firstReadyIP
+		if liveIP == "" {
+			liveIP = firstLiveIP
+		}
+		if backendIP != "" && backendIP != liveIP {
+			replacedBackendNote = fmt.Sprintf("原后端 IP (%s) 已销毁，本次直连改测当前就绪后端 (%s)", backendIP, liveIP)
+		}
+		backendIP = liveIP
 	}
 	rec.CurrentBackends = currBackends
 
@@ -406,6 +459,9 @@ func (s *Store) Retest(ctx context.Context, id string) (*model.IncidentSnapshot,
 
 	// Build Before vs After diff
 	rec.Diff = BuildIncidentDiff(snap, rec, hasCIP, hasDirect)
+	if replacedBackendNote != "" {
+		rec.Diff.ChangesSummary = append(rec.Diff.ChangesSummary, replacedBackendNote)
+	}
 	if rec.Diff.StatusAfter == "recovered" {
 		rec.Verdict = "recovered"
 		rec.VerdictText = "已恢复连通（与故障现场对比已恢复正常）"
@@ -426,11 +482,18 @@ func (s *Store) Retest(ctx context.Context, id string) (*model.IncidentSnapshot,
 		}
 		if rec.Verdict == "recovered" {
 			inc.Status = "recovered"
+			if inc.RecoveredAt == nil {
+				rt := now
+				inc.RecoveredAt = &rt
+			}
 		} else {
 			inc.Status = "active"
 			inc.LastSeenAt = now
 		}
 		inc.Timeline = s.collectTimelineWithK8sEvents(ctx, inc.FirstSeenAt, now, inc.SrcNamespace, inc.TargetNamespace, inc.TargetService, inc.TargetBackendPod)
+		if inc.Status == "recovered" || inc.Status == "intermittent" {
+			inc.RecoveryNarrative = BuildRecoveryNarrative(*inc)
+		}
 		cp := *inc
 		return &cp, nil
 	}
@@ -457,31 +520,41 @@ func BuildIncidentDiff(snap model.IncidentSnapshot, rec model.IncidentRetestReco
 		latAfter = rec.DirectLatMs
 	}
 
-	beforeSet := make(map[string]bool, len(snap.InitialBackends))
-	for _, b := range snap.InitialBackends {
-		beforeSet[b] = true
+	beforeFail := snap.InitialFailureSummary
+	if beforeFail == "" || beforeFail == "正常" {
+		beforeFail = snap.FailureSummary
 	}
-	afterSet := make(map[string]bool, len(rec.CurrentBackends))
+	if beforeFail == "" || beforeFail == "正常" {
+		beforeFail = "原因待确认"
+	}
+
+	beforeSet := make(map[string]string, len(snap.InitialBackends))
+	for _, b := range snap.InitialBackends {
+		beforeSet[backendDiffKey(b)] = b
+	}
+	afterSet := make(map[string]string, len(rec.CurrentBackends))
 	for _, b := range rec.CurrentBackends {
-		afterSet[b] = true
+		afterSet[backendDiffKey(b)] = b
 	}
 	var added, removed []string
-	for _, b := range rec.CurrentBackends {
-		if !beforeSet[b] {
+	for k, b := range afterSet {
+		if _, ok := beforeSet[k]; !ok {
 			added = append(added, b)
 		}
 	}
-	for _, b := range snap.InitialBackends {
-		if !afterSet[b] {
+	for k, b := range beforeSet {
+		if _, ok := afterSet[k]; !ok {
 			removed = append(removed, b)
 		}
 	}
+	sort.Strings(added)
+	sort.Strings(removed)
 
 	var changes []string
 	if afterOK {
-		changes = append(changes, fmt.Sprintf("连通性：%s → 已恢复正常 (%.2f ms)", snap.FailureSummary, latAfter))
-	} else if failAfter != snap.FailureSummary {
-		changes = append(changes, fmt.Sprintf("失败表现变化：%s → %s", snap.FailureSummary, failAfter))
+		changes = append(changes, fmt.Sprintf("连通性：%s → 已恢复正常 (%.2f ms)", beforeFail, latAfter))
+	} else if failAfter != beforeFail {
+		changes = append(changes, fmt.Sprintf("失败表现变化：%s → %s", beforeFail, failAfter))
 	} else {
 		changes = append(changes, fmt.Sprintf("失败表现未变：仍为 %s", failAfter))
 	}
@@ -498,7 +571,7 @@ func BuildIncidentDiff(snap model.IncidentSnapshot, rec model.IncidentRetestReco
 	return model.IncidentDiff{
 		StatusBefore:    snap.InitialResult,
 		StatusAfter:     statusAfter,
-		FailureBefore:   snap.FailureSummary,
+		FailureBefore:   beforeFail,
 		FailureAfter:    failAfter,
 		LatencyBefore:   snap.InitialLatencyMs,
 		LatencyAfter:    latAfter,
@@ -571,4 +644,104 @@ func splitNSName(s string) (string, string) {
 		return s[:idx], s[idx+1:]
 	}
 	return "", s
+}
+
+// backendDiffKey extracts the canonical IP inside "name (ip)" so bare IP and labeled node/pod IP match cleanly.
+func backendDiffKey(label string) string {
+	s := strings.TrimSpace(label)
+	if l := strings.LastIndex(s, "("); l >= 0 {
+		if r := strings.LastIndex(s, ")"); r > l {
+			ip := strings.TrimSpace(s[l+1 : r])
+			if ip != "" {
+				return ip
+			}
+		}
+	}
+	return s
+}
+
+// normalizeInitialFailureSummary ensures a degraded/broken incident never records "正常" or empty text.
+func normalizeInitialFailureSummary(pc model.ServicePortHealth) string {
+	s := strings.TrimSpace(pc.FailureSummary)
+	if s != "" && s != "正常" {
+		return s
+	}
+	if pc.ReadyBackends < pc.TotalBackends {
+		return fmt.Sprintf("部分后端未就绪（Ready %d/%d，已测 %d/%d 可达）", pc.ReadyBackends, pc.TotalBackends, pc.ReachableBackends, pc.TestedBackends)
+	}
+	if pc.TestedBackends > 0 && pc.ReachableBackends < pc.TestedBackends {
+		return fmt.Sprintf("部分后端不可达（%d/%d 可达，原因待确认）", pc.ReachableBackends, pc.TestedBackends)
+	}
+	return "原因待确认"
+}
+
+func formatInitialBackendState(pc model.ServicePortHealth) string {
+	proto := pc.Protocol
+	if proto == "" {
+		proto = "TCP"
+	}
+	if pc.TotalBackends == 0 {
+		return fmt.Sprintf("端口 %d/%s · 无后端", pc.ServicePort, proto)
+	}
+	return fmt.Sprintf("端口 %d/%s · 后端 Ready %d/%d，实测可达 %d/%d",
+		pc.ServicePort, proto, pc.ReadyBackends, pc.TotalBackends, pc.ReachableBackends, pc.TestedBackends)
+}
+
+// BuildRecoveryNarrative summarizes what was initially observed, what cluster change occurred, and the current recovered state.
+func BuildRecoveryNarrative(inc model.IncidentSnapshot) string {
+	initStatusWord := "探测失败"
+	if inc.InitialStatus == "degraded" || inc.InitialResult == "degraded" {
+		initStatusWord = "降级"
+	}
+	reason := strings.TrimSpace(inc.InitialFailureSummary)
+	if reason == "" || reason == "正常" {
+		reason = strings.TrimSpace(inc.FailureSummary)
+	}
+	if reason == "" || reason == "正常" {
+		reason = "原因待确认"
+	}
+
+	firstPart := fmt.Sprintf("首次巡检记录为%s（%s）", initStatusWord, reason)
+
+	// Scan timeline for concrete recovery signals (Ready=false -> Ready=true, Endpoint change, Pod rebuild, etc.)
+	midPart := "随后巡检探测恢复连通"
+	hasReadyRecover := false
+	hasEndpointChange := false
+	hasPodRebuild := false
+	hasPolicyChange := false
+	hasBGPChange := false
+	for _, ev := range inc.Timeline {
+		low := strings.ToLower(ev.Summary)
+		if strings.Contains(ev.Summary, "Ready") || strings.Contains(low, "ready=true") || strings.Contains(ev.Summary, "就绪") {
+			hasReadyRecover = true
+		}
+		switch ev.Category {
+		case "endpoint_change":
+			hasEndpointChange = true
+		case "pod_rebuild":
+			hasPodRebuild = true
+		case "policy_change":
+			hasPolicyChange = true
+		case "bgp_change":
+			hasBGPChange = true
+		}
+	}
+	switch {
+	case hasReadyRecover:
+		midPart = "随后观察到后端恢复 Ready"
+	case hasEndpointChange:
+		midPart = "随后观察到后端 Endpoint 更替"
+	case hasPodRebuild:
+		midPart = "随后观察到关联 Pod 重建完成"
+	case hasPolicyChange:
+		midPart = "随后观察到网络策略变更"
+	case hasBGPChange:
+		midPart = "随后观察到 BGP 会话状态变化"
+	}
+
+	currPart := "当前已恢复"
+	if inc.Status == "intermittent" {
+		currPart = fmt.Sprintf("当前已恢复（此前累计异常 %d 次）", inc.FailureCount)
+	}
+	return fmt.Sprintf("%s；%s；%s。", firstPart, midPart, currPart)
 }

@@ -27,21 +27,23 @@ import type {
 import { SectionCard, StatusPill } from '../components/common/Badges';
 import { ServiceDiagDrawer, type ServiceDiagMode } from '../components/health/ServiceDiagDrawer';
 
-interface HealthPageProps {
-  onLaunchTrace: (req: Partial<TraceFlowRequest>) => void;
-}
-
 type SvcFilterKey = 'all' | 'abnormal' | 'broken' | 'degraded' | 'no-endpoints' | 'healthy';
 
-export function HealthPage({ onLaunchTrace }: HealthPageProps) {
+interface HealthPageProps {
+  onLaunchTrace: (req: Partial<TraceFlowRequest>) => void;
+  initialFilterIntent?: { filter: SvcFilterKey; ts: number } | null;
+}
+
+export function HealthPage({ onLaunchTrace, initialFilterIntent }: HealthPageProps) {
   const [report, setReport] = useState<GlobalHealthReport | null>(null);
   const [incidents, setIncidents] = useState<IncidentSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
-  const [svcFilter, setSvcFilter] = useState<SvcFilterKey>('all');
+  const [svcFilter, setSvcFilter] = useState<SvcFilterKey>(initialFilterIntent?.filter || 'all');
   const [svcSearch, setSvcSearch] = useState('');
   const [expandedSvc, setExpandedSvc] = useState<string | null>(null);
   const [highlightSection, setHighlightSection] = useState<'matrix' | 'infra' | 'services' | 'incidents' | null>(null);
+  const handledIntentTsRef = useRef<number>(0);
 
   // Evidence-driven Service Diagnostic Drawer
   const [diagDrawer, setDiagDrawer] = useState<{
@@ -116,6 +118,15 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
   useEffect(() => {
     load();
   }, []);
+
+  // Auto-jump to target service filter when navigated from Overview first-row summary banner
+  useEffect(() => {
+    if (!initialFilterIntent || !report) return;
+    if (handledIntentTsRef.current === initialFilterIntent.ts) return;
+    handledIntentTsRef.current = initialFilterIntent.ts;
+    jumpToServiceIssues(initialFilterIntent.filter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFilterIntent, report]);
 
   const handleSavePortIncident = async (svc: ServiceHealthItem, pc: ServicePortHealth) => {
     const failedBackend = pc.backends.find((b) => !b.probeOk) || pc.backends[0];
@@ -697,33 +708,60 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
                           <div className="text-[#8C7F73]">{(svc.ports || []).join(', ') || '—'}</div>
                         </td>
                         <td className="px-4 py-2.5">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <StatusPill status={svc.status} compact />
-                            {portChecks.map((pc, pi) => (
-                              <span
-                                key={pi}
-                                className={`px-1.5 py-0.5 rounded font-mono text-[10px] border ${
-                                  pc.status === 'broken'
-                                    ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900'
-                                    : pc.status === 'degraded'
-                                      ? 'bg-[#FFF4E4] text-[#9E4A05] border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040]'
-                                      : pc.status === 'untested' || pc.status === 'no-endpoints'
-                                        ? 'bg-[#F7F3EE] text-[#8C7F73] border-[#E9E1D6] dark:bg-[#25201C] dark:text-[#A39587]'
-                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
-                                }`}
-                              >
-                                {pc.servicePort}/{pc.protocol}:{' '}
-                                {pc.status === 'healthy'
-                                  ? '正常'
-                                  : pc.status === 'broken'
-                                    ? '失败'
-                                    : pc.status === 'degraded'
-                                      ? '降级'
-                                      : pc.status === 'no-endpoints'
-                                        ? '无后端'
-                                        : '未测'}
-                              </span>
-                            ))}
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <StatusPill
+                                status={
+                                  svc.statusLabel === '部分未测' || svc.statusLabel === '未测'
+                                    ? 'warn'
+                                    : svc.statusLabel === '部分端口异常'
+                                      ? 'broken'
+                                      : svc.status
+                                }
+                                label={svc.statusLabel || svc.status}
+                                compact
+                              />
+                              {svc.portSummary && (
+                                <span className="text-[11px] font-semibold text-[#201B18] dark:text-[#F5F0EA]">
+                                  {svc.portSummary}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1">
+                              {portChecks.map((pc, pi) => {
+                                const shortLbl =
+                                  pc.shortOutcome ||
+                                  (pc.status === 'healthy'
+                                    ? '通'
+                                    : pc.status === 'broken'
+                                      ? pc.failureKind === 'connection_refused'
+                                        ? '拒绝'
+                                        : pc.failureKind === 'timeout'
+                                          ? '超时'
+                                          : '失败'
+                                      : pc.status === 'degraded'
+                                        ? '降级'
+                                        : pc.status === 'no-endpoints'
+                                          ? '无后端'
+                                          : '未测');
+                                return (
+                                  <span
+                                    key={pi}
+                                    className={`px-1.5 py-0.5 rounded font-mono text-[10px] border ${
+                                      pc.status === 'broken'
+                                        ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900'
+                                        : pc.status === 'degraded'
+                                          ? 'bg-[#FFF4E4] text-[#9E4A05] border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040]'
+                                          : pc.status === 'untested' || pc.status === 'no-endpoints'
+                                            ? 'bg-[#F7F3EE] text-[#8C7F73] border-[#E9E1D6] dark:bg-[#25201C] dark:text-[#A39587]'
+                                            : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                    }`}
+                                  >
+                                    {pc.servicePort}/{pc.protocol}: {shortLbl}
+                                  </span>
+                                );
+                              })}
+                            </div>
                           </div>
                         </td>
                         <td className="px-4 py-2.5">
@@ -934,7 +972,7 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
                 return (
                   <div key={inc.id} className="p-4 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="space-y-1 min-w-0">
+                      <div className="space-y-1.5 min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
@@ -950,12 +988,39 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
                           <span className="font-mono text-xs font-bold text-[#201B18] dark:text-[#F5F0EA]">{inc.title}</span>
                           <span className="font-mono text-[10px] text-[#8C7F73]">({inc.id})</span>
                         </div>
+
+                        {/* Separate Initial Observation vs Current Status Narrative */}
+                        {inc.recoveryNarrative ? (
+                          <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/60 text-xs text-emerald-900 dark:text-emerald-200">
+                            {inc.recoveryNarrative}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-[#574D44] dark:text-[#D5C9BC]">
+                            <span className="font-semibold text-[#9E4A05] dark:text-[#FBB040]">首次异常：</span>
+                            {inc.initialFailureSummary && inc.initialFailureSummary !== '正常'
+                              ? inc.initialFailureSummary
+                              : inc.failureSummary && inc.failureSummary !== '正常'
+                                ? inc.failureSummary
+                                : '原因待确认'}
+                          </div>
+                        )}
+
                         <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#8C7F73] font-mono">
                           <span className="inline-flex items-center gap-1">
                             <Clock className="w-3 h-3" /> 首次: {new Date(inc.firstSeenAt).toLocaleTimeString()}
                           </span>
                           <span>最近: {new Date(inc.lastSeenAt).toLocaleTimeString()}</span>
-                          <span>累计失败 {inc.failureCount} 次</span>
+                          {inc.recoveredAt && (
+                            <span className="text-emerald-700 dark:text-emerald-400">
+                              恢复: {new Date(inc.recoveredAt).toLocaleTimeString()}
+                            </span>
+                          )}
+                          <span>累计异常 {inc.failureCount} 次</span>
+                          {inc.initialBackendState && (
+                            <span className="px-1.5 py-0.2 rounded bg-[#FAF6F1] dark:bg-[#25201C] border border-[#E9E1D6] dark:border-[#2E2721] text-[#574D44] dark:text-[#D5C9BC]">
+                              当时现场：{inc.initialBackendState}
+                            </span>
+                          )}
                           {inc.srcPod && <span>源: {inc.srcNamespace}/{inc.srcPod}</span>}
                           {inc.targetBackendIP && <span>后端: {inc.targetBackendPod || inc.targetBackendIP}:{inc.backendPort || inc.servicePort}</span>}
                         </div>

@@ -8,23 +8,33 @@ import {
   RefreshCw,
   ArrowRight,
   GitBranch,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react';
 import { api } from '../api/client';
-import type { ClusterNetworkOverview } from '../api/types';
+import type { ClusterNetworkOverview, GlobalHealthReport } from '../api/types';
 import { EncapBadge, EngineBadge, SectionCard, StatusPill } from '../components/common/Badges';
 import { formatBps, formatLatency, formatRelTime } from '../utils/format';
 
-export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void }) {
+export function OverviewPage({
+  onNavigate,
+  onOpenHealth,
+}: {
+  onNavigate: (tab: string) => void;
+  onOpenHealth?: (filter?: 'all' | 'abnormal' | 'broken' | 'degraded' | 'no-endpoints' | 'healthy') => void;
+}) {
   const [data, setData] = useState<ClusterNetworkOverview | null>(null);
+  const [health, setHealth] = useState<GlobalHealthReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const load = () => {
     setLoading(true);
-    api
-      .getOverview()
-      .then((d) => {
+    Promise.all([api.getOverview(), api.getHealth().catch(() => null)])
+      .then(([d, h]) => {
         setData(d);
+        if (h) setHealth(h);
         setError('');
       })
       .catch((e) => setError(e.message))
@@ -80,6 +90,120 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
           </button>
         </div>
       </div>
+
+      {/* First-Row Actionable Health Verdict Banner */}
+      {health && (() => {
+        const crossTotal = health.podToPod.crossNodeTotal ?? Math.max(0, health.podToPod.totalPairs - health.podToPod.nodes.length);
+        const crossHealthy = health.podToPod.crossNodeHealthy ?? crossTotal;
+        const crossFailed = health.podToPod.crossNodeFailed ?? Math.max(0, crossTotal - crossHealthy);
+        const broken = health.serviceBackends.brokenServices;
+        const degraded = health.serviceBackends.degradedServices;
+        const noEp = health.serviceBackends.noEndpointServices;
+        const totalSvcs = health.serviceBackends.totalServices;
+        const hasIssue = crossFailed > 0 || broken > 0 || degraded > 0;
+        const openHealth = (f?: 'all' | 'abnormal' | 'broken' | 'degraded' | 'no-endpoints' | 'healthy') => {
+          if (onOpenHealth) onOpenHealth(f);
+          else onNavigate('health');
+        };
+        return (
+          <div
+            className={`px-4 py-3.5 rounded-2xl border flex flex-wrap items-center justify-between gap-3 shadow-xs ${
+              hasIssue
+                ? 'bg-gradient-to-r from-[#FFF6E8] via-white to-[#FFF4F4] dark:from-[#2A1D12] dark:via-[#1C1815] dark:to-[#281617] border-[#FAD4A1] dark:border-[#F08C18]/45'
+                : 'bg-gradient-to-r from-emerald-50/80 to-white dark:from-emerald-950/30 dark:to-[#1C1815] border-emerald-200 dark:border-emerald-900/60'
+            }`}
+          >
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              {hasIssue ? (
+                <AlertTriangle className="w-5 h-5 text-[#D9720B] dark:text-[#FBB040] mt-0.5 shrink-0" />
+              ) : (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+              )}
+              <div className="space-y-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-[#201B18] dark:text-[#F5F0EA] leading-relaxed">
+                  <span>
+                    {health.podToPod.nodes.length} 个节点的跨节点探针
+                    {crossTotal > 0
+                      ? crossFailed === 0
+                        ? `双向连通（${crossHealthy}/${crossTotal}）`
+                        : `存在异常（${crossHealthy}/${crossTotal} 可达）`
+                      : '在线'}
+                    。
+                  </span>
+                  <span>{totalSvcs} 个 Service 中，</span>
+                  <button
+                    type="button"
+                    onClick={() => openHealth('broken')}
+                    className={`px-1.5 py-0.2 rounded font-bold transition ${
+                      broken > 0
+                        ? 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-950/70 dark:text-rose-300'
+                        : 'text-emerald-700 dark:text-emerald-400 hover:underline'
+                    }`}
+                  >
+                    {broken} 个探测失败
+                  </button>
+                  <span>、</span>
+                  <button
+                    type="button"
+                    onClick={() => openHealth('degraded')}
+                    className={`px-1.5 py-0.2 rounded font-bold transition ${
+                      degraded > 0
+                        ? 'bg-[#FFF4E4] text-[#9E4A05] hover:bg-[#FDE6C4] dark:bg-[#F08C18]/20 dark:text-[#FBB040]'
+                        : 'text-[#574D44] dark:text-[#A39587] hover:underline'
+                    }`}
+                  >
+                    {degraded} 个降级
+                  </button>
+                  <span>、</span>
+                  <button
+                    type="button"
+                    onClick={() => openHealth('no-endpoints')}
+                    className="px-1.5 py-0.2 rounded font-semibold bg-[#F7F3EE] text-[#574D44] hover:bg-[#EFE7DD] dark:bg-[#25201C] dark:text-[#D5C9BC] transition"
+                  >
+                    {noEp} 个无后端
+                  </button>
+                  <span>。</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#7A6A5B] dark:text-[#A39587] font-mono">
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    最近巡检：{new Date(health.checkedAt).toLocaleTimeString()}（耗时 {health.durationMs} ms）
+                  </span>
+                  <span>综合评分：{health.overallScore}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {broken > 0 ? (
+                <button
+                  onClick={() => openHealth('broken')}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition"
+                >
+                  <span>查看 {broken} 个失败服务</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              ) : degraded > 0 ? (
+                <button
+                  onClick={() => openHealth('degraded')}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F08C18] hover:bg-[#D9720B] text-white text-xs font-semibold shadow-sm transition"
+                >
+                  <span>查看 {degraded} 个降级服务</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => openHealth('all')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] hover:bg-[#FDE6C4] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40 text-xs font-semibold transition"
+                >
+                  <span>查看全局巡检</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Primary KPI Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">

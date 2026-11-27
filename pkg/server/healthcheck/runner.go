@@ -899,6 +899,7 @@ func (r *Runner) evaluateServicesPerPort(
 				ph.ProbeState = "untested"
 				ph.UntestedReason = "无后端 Endpoint，未发起连接探测"
 				ph.Status = "no-endpoints"
+				ph.ShortOutcome = "无后端"
 				ph.FailureKind = "untested"
 				ph.FailureSummary = "无后端（未测）"
 				ph.Diagnosis = fmt.Sprintf("端口 %d/%s 无后端 Endpoint（Selector 未匹配或 Pod 未 Ready）", ph.ServicePort, ph.Protocol)
@@ -908,6 +909,7 @@ func (r *Runner) evaluateServicesPerPort(
 				ph.ProbeState = "untested"
 				ph.UntestedReason = fmt.Sprintf("%s 协议暂未执行主动拨测", ph.Protocol)
 				ph.Status = "untested"
+				ph.ShortOutcome = "未测"
 				ph.FailureKind = "untested"
 				ph.FailureSummary = fmt.Sprintf("未测（%s 协议）", ph.Protocol)
 				ph.Diagnosis = fmt.Sprintf("端口 %d/%s 存在 %d 个后端（%s 端口未测）", ph.ServicePort, ph.Protocol, ph.TotalBackends, ph.Protocol)
@@ -917,6 +919,7 @@ func (r *Runner) evaluateServicesPerPort(
 				ph.ProbeState = "untested"
 				ph.UntestedReason = "超出单次巡检配额，本端口未测"
 				ph.Status = "untested"
+				ph.ShortOutcome = "未测"
 				ph.FailureKind = "untested"
 				ph.FailureSummary = "未测（超出配额）"
 				ph.Diagnosis = fmt.Sprintf("端口 %d/%s 超出单次巡检配额，状态未知", ph.ServicePort, ph.Protocol)
@@ -926,34 +929,51 @@ func (r *Runner) evaluateServicesPerPort(
 				allUntested = false
 				ph.ProbeState = "tested"
 				failText := strings.Join(failReasons, " / ")
-				if failText == "" {
-					failText = "正常"
-				}
 
 				switch {
 				case ph.ClusterIPState == "failed" && ph.ReachableBackends > 0:
+					if failText == "" {
+						failText = "ClusterIP 转发探测失败（原因待确认）"
+					}
 					ph.Status = "broken"
 					ph.FailureKind = firstFailKind
 					ph.FailureSummary = failText
+					ph.ShortOutcome = shortFailureOutcome(firstFailKind)
 					ph.Diagnosis = fmt.Sprintf("直连后端成功（%d/%d），但访问 ClusterIP:%d 失败（%s）— 疑似 kube-proxy 转发异常", ph.ReachableBackends, ph.TestedBackends, ph.ServicePort, failText)
 					ph.RecommendedAction = "trace_service_dnat"
 					hasBrokenPort = true
 				case ph.TestedBackends > 0 && ph.ReachableBackends == 0:
+					if failText == "" {
+						failText = "后端探测失败（原因待确认）"
+					}
 					ph.Status = "broken"
 					ph.FailureKind = firstFailKind
 					ph.FailureSummary = failText
+					ph.ShortOutcome = shortFailureOutcome(firstFailKind)
 					ph.Diagnosis = fmt.Sprintf("本次探测的 %d 个后端（端口 %d/%s）均未连通：%s", ph.TestedBackends, ph.ResolvedTargetPort, ph.Protocol, failText)
 					ph.RecommendedAction = "check_port_listening"
 					hasBrokenPort = true
 				case ph.ReachableBackends < ph.TestedBackends || ph.ReadyBackends < ph.TotalBackends:
 					ph.Status = "degraded"
-					ph.FailureKind = firstFailKind
-					ph.FailureSummary = failText
-					ph.Diagnosis = fmt.Sprintf("部分后端未连通：Ready %d/%d，实测可达 %d/%d（%s）", ph.ReadyBackends, ph.TotalBackends, ph.ReachableBackends, ph.TestedBackends, failText)
+					ph.ShortOutcome = "降级"
+					if ph.ReachableBackends < ph.TestedBackends && failText != "" {
+						ph.FailureKind = firstFailKind
+						ph.FailureSummary = fmt.Sprintf("部分后端失败（%d/%d 可达：%s）", ph.ReachableBackends, ph.TestedBackends, failText)
+						ph.Diagnosis = fmt.Sprintf("部分后端未连通：Ready %d/%d，实测可达 %d/%d（%s）", ph.ReadyBackends, ph.TotalBackends, ph.ReachableBackends, ph.TestedBackends, failText)
+					} else if ph.ReadyBackends < ph.TotalBackends {
+						ph.FailureKind = "not_ready_backends"
+						ph.FailureSummary = fmt.Sprintf("部分后端未就绪（Ready %d/%d，已测 %d/%d 可达）", ph.ReadyBackends, ph.TotalBackends, ph.ReachableBackends, ph.TestedBackends)
+						ph.Diagnosis = fmt.Sprintf("部分后端未就绪：Ready %d/%d，已测后端可达 %d/%d", ph.ReadyBackends, ph.TotalBackends, ph.ReachableBackends, ph.TestedBackends)
+					} else {
+						ph.FailureKind = "unknown"
+						ph.FailureSummary = "降级（原因待确认）"
+						ph.Diagnosis = fmt.Sprintf("端口 %d/%s 标记为降级（原因待确认；Ready %d/%d，可达 %d/%d）", ph.ServicePort, ph.Protocol, ph.ReadyBackends, ph.TotalBackends, ph.ReachableBackends, ph.TestedBackends)
+					}
 					ph.RecommendedAction = "check_port_listening"
 					hasDegradedPort = true
 				default:
 					ph.Status = "healthy"
+					ph.ShortOutcome = "通"
 					ph.FailureSummary = "正常"
 					if ph.ClusterIPState == "headless" {
 						ph.Diagnosis = fmt.Sprintf("Headless 端口 %d/%s 全部 %d 个后端实测可达", ph.ServicePort, ph.Protocol, ph.ReachableBackends)
@@ -972,20 +992,27 @@ func (r *Runner) evaluateServicesPerPort(
 			}
 			switch ph.Status {
 			case "broken":
-				portVerdicts = append(portVerdicts, fmt.Sprintf("%s 失败（%s）", portTag, ph.FailureSummary))
+				portVerdicts = append(portVerdicts, fmt.Sprintf("%s %s", portTag, ph.ShortOutcome))
 			case "degraded":
-				portVerdicts = append(portVerdicts, fmt.Sprintf("%s 降级（%d/%d 可达）", portTag, ph.ReachableBackends, ph.TestedBackends))
+				portVerdicts = append(portVerdicts, fmt.Sprintf("%s 降级（%s）", portTag, ph.FailureSummary))
 			case "untested":
 				portVerdicts = append(portVerdicts, fmt.Sprintf("%s 未测", portTag))
 			case "healthy":
-				portVerdicts = append(portVerdicts, fmt.Sprintf("%s 正常", portTag))
+				portVerdicts = append(portVerdicts, fmt.Sprintf("%s 通（%d/%d）", portTag, ph.ReachableBackends, ph.TestedBackends))
 			}
 		}
+
+		// Compute explicit port coverage & outcome summary (never hide port differences behind a single rollup status)
+		d.PortSummary, d.StatusLabel, d.TotalPorts, d.TestedPorts, d.HealthyPorts, d.FailedPorts, d.DegradedPorts, d.UntestedPorts = BuildServicePortSummary(d.PortChecks)
 
 		// Service-level rollup
 		switch {
 		case allNoEndpoints || d.TotalBackends == 0:
 			d.Status = "no-endpoints"
+			d.StatusLabel = "无后端"
+			if d.PortSummary == "" {
+				d.PortSummary = fmt.Sprintf("%d 个端口无后端", len(d.PortChecks))
+			}
 			d.Diagnosis = "Selector 未匹配到任何后端 Pod 或 EndpointSlice 为空"
 			d.RecommendedAction = "inspect_empty_backends"
 			sum.NoEndpointSvcs++
@@ -1245,4 +1272,132 @@ func computeOverallScoreAndStatus(mesh model.PodMeshHealth, pn model.PodNodeHeal
 
 func round2(v float64) float64 {
 	return math.Round(v*100) / 100
+}
+
+func shortFailureOutcome(kind string) string {
+	switch kind {
+	case "connection_refused":
+		return "拒绝"
+	case "timeout":
+		return "超时"
+	case "no_route":
+		return "不可达"
+	default:
+		return "失败"
+	}
+}
+
+// BuildServicePortSummary computes a concise human-readable port outcome & coverage summary
+// (e.g. "3 个端口：1 通、2 拒绝" or "2 个 TCP 端口通过，1 个 UDP 端口未测") and accurate status label.
+func BuildServicePortSummary(portChecks []model.ServicePortHealth) (summary, statusLabel string, total, tested, healthy, failed, degraded, untested int) {
+	total = len(portChecks)
+	if total == 0 {
+		return "未声明端口", "无后端", 0, 0, 0, 0, 0, 0
+	}
+
+	var refused, timedOut, otherFail, noEp int
+	var healthyTCP, untestedUDP, untestedOther int
+	for _, pc := range portChecks {
+		proto := strings.ToUpper(pc.Protocol)
+		switch pc.Status {
+		case "healthy":
+			tested++
+			healthy++
+			if proto == "TCP" {
+				healthyTCP++
+			}
+		case "broken":
+			tested++
+			failed++
+			switch pc.FailureKind {
+			case "connection_refused":
+				refused++
+			case "timeout":
+				timedOut++
+			default:
+				otherFail++
+			}
+		case "degraded":
+			tested++
+			degraded++
+		case "no-endpoints":
+			noEp++
+			untested++
+		default: // untested
+			untested++
+			if proto == "UDP" {
+				untestedUDP++
+			} else {
+				untestedOther++
+			}
+		}
+	}
+
+	if noEp == total {
+		return fmt.Sprintf("%d 个端口无后端", total), "无后端", total, tested, healthy, failed, degraded, untested
+	}
+
+	// Pure healthy + untested coverage case (e.g. kube-dns: 2 TCP ok, 1 UDP untested)
+	if failed == 0 && degraded == 0 && untested > 0 {
+		var parts []string
+		if healthy > 0 {
+			if healthyTCP == healthy {
+				parts = append(parts, fmt.Sprintf("%d 个 TCP 端口通过", healthy))
+			} else {
+				parts = append(parts, fmt.Sprintf("%d 个端口通过", healthy))
+			}
+		}
+		if untestedUDP > 0 {
+			parts = append(parts, fmt.Sprintf("%d 个 UDP 端口未测", untestedUDP))
+		}
+		if untestedOther > 0 {
+			parts = append(parts, fmt.Sprintf("%d 个端口未测", untestedOther))
+		}
+		if noEp > 0 {
+			parts = append(parts, fmt.Sprintf("%d 个无后端", noEp))
+		}
+		lbl := "部分未测"
+		if healthy == 0 {
+			lbl = "未测"
+		}
+		return strings.Join(parts, "，"), lbl, total, tested, healthy, failed, degraded, untested
+	}
+
+	// All tested and healthy
+	if failed == 0 && degraded == 0 && untested == 0 {
+		if total == 1 && healthyTCP == 1 {
+			return "1 个 TCP 端口通过", "全部通过", total, tested, healthy, failed, degraded, untested
+		}
+		return fmt.Sprintf("%d 个端口全部通过", total), "全部通过", total, tested, healthy, failed, degraded, untested
+	}
+
+	// Mixed or failed/degraded ports: show exact counts (e.g. "3 个端口：1 通、2 拒绝")
+	var items []string
+	if healthy > 0 {
+		items = append(items, fmt.Sprintf("%d 通", healthy))
+	}
+	if degraded > 0 {
+		items = append(items, fmt.Sprintf("%d 降级", degraded))
+	}
+	if refused > 0 {
+		items = append(items, fmt.Sprintf("%d 拒绝", refused))
+	}
+	if timedOut > 0 {
+		items = append(items, fmt.Sprintf("%d 超时", timedOut))
+	}
+	if otherFail > 0 {
+		items = append(items, fmt.Sprintf("%d 失败", otherFail))
+	}
+	if untested > 0 {
+		items = append(items, fmt.Sprintf("%d 未测", untested))
+	}
+
+	if failed > 0 && healthy > 0 {
+		statusLabel = "部分端口异常"
+	} else if failed > 0 {
+		statusLabel = "全部端口失败"
+	} else {
+		statusLabel = "降级"
+	}
+	return fmt.Sprintf("%d 个端口：%s", total, strings.Join(items, "、")), statusLabel, total, tested, healthy, failed, degraded, untested
 }

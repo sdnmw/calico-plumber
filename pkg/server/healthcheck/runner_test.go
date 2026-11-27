@@ -159,3 +159,64 @@ func TestEvaluateServicesPerPort_MultiPortAndHeadlessZeroReachable(t *testing.T)
 		t.Fatalf("expected degraded and score <= 89 when broken services exist, got score=%d status=%s", score, status)
 	}
 }
+
+func TestBuildServicePortSummary_KubeletAndKubeDNSAndDegradedNotNormal(t *testing.T) {
+	// 1. kube-system/kubelet: 10250 OK, 10255 refused, 4194 refused
+	summary, label, total, tested, healthy, failed, degraded, untested := BuildServicePortSummary([]model.ServicePortHealth{
+		{ServicePort: 10250, Protocol: "TCP", Status: "healthy"},
+		{ServicePort: 10255, Protocol: "TCP", Status: "broken", FailureKind: "connection_refused"},
+		{ServicePort: 4194, Protocol: "TCP", Status: "broken", FailureKind: "connection_refused"},
+	})
+	if summary != "3 个端口：1 通、2 拒绝" || label != "部分端口异常" || total != 3 || tested != 3 || healthy != 1 || failed != 2 || degraded != 0 || untested != 0 {
+		t.Fatalf("unexpected kubelet summary: summary=%q label=%q counts=%d/%d/%d/%d/%d/%d", summary, label, total, tested, healthy, failed, degraded, untested)
+	}
+
+	// 2. kube-system/kube-dns: 53/UDP untested, 53/TCP OK, 9153/TCP OK
+	summary, label, total, tested, healthy, failed, _, untested = BuildServicePortSummary([]model.ServicePortHealth{
+		{ServicePort: 53, Protocol: "UDP", Status: "untested"},
+		{ServicePort: 53, Protocol: "TCP", Status: "healthy"},
+		{ServicePort: 9153, Protocol: "TCP", Status: "healthy"},
+	})
+	if summary != "2 个 TCP 端口通过，1 个 UDP 端口未测" || label != "部分未测" || total != 3 || tested != 2 || healthy != 2 || failed != 0 || untested != 1 {
+		t.Fatalf("unexpected kube-dns summary: summary=%q label=%q counts=%d/%d/%d/%d/%d", summary, label, total, tested, healthy, failed, untested)
+	}
+
+	// 3. Degraded Service during rolling restart (Ready 1/2, tested 1/1 OK) must NEVER record FailureSummary == "正常"
+	r := &Runner{}
+	rollSvc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "calico-netdiag", Name: "calico-netdiag-server"},
+		Spec: corev1.ServiceSpec{
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: "10.250.253.88",
+			Ports:     []corev1.ServicePort{{Name: "http", Port: 8080, TargetPort: intstr.FromInt(8080), Protocol: corev1.ProtocolTCP}},
+		},
+	}
+	rollSlice := &discoveryv1.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "calico-netdiag", Name: "calico-netdiag-server-abc"},
+		Ports:      []discoveryv1.EndpointPort{{Name: strPtr("http"), Port: int32Ptr(8080), Protocol: protoPtr(corev1.ProtocolTCP)}},
+		Endpoints: []discoveryv1.Endpoint{
+			{Addresses: []string{"172.31.226.1"}, Conditions: discoveryv1.EndpointConditions{Ready: boolPtr(true)}},
+			{Addresses: []string{"172.31.226.2"}, Conditions: discoveryv1.EndpointConditions{Ready: boolPtr(false)}},
+		},
+	}
+	sum := r.evaluateServicesPerPort(
+		context.Background(),
+		[]*corev1.Service{rollSvc},
+		map[string][]*discoveryv1.EndpointSlice{"calico-netdiag/calico-netdiag-server": {rollSlice}},
+		"探针 Pod probe-0", "calico-netdiag/probe-0", "mw-worker",
+		func(targets []agentclient.HostTCPTarget) map[string]agentclient.HostTCPResult {
+			out := make(map[string]agentclient.HostTCPResult)
+			for _, tgt := range targets {
+				out[tgt.ID] = agentclient.HostTCPResult{ID: tgt.ID, OK: true, LatencyMs: 0.5}
+			}
+			return out
+		},
+	)
+	if len(sum.Services) != 1 || sum.Services[0].Status != "degraded" {
+		t.Fatalf("expected degraded rolling-update svc, got %+v", sum.Services)
+	}
+	pc := sum.Services[0].PortChecks[0]
+	if pc.FailureSummary == "正常" || pc.FailureSummary == "" || !strings.Contains(pc.FailureSummary, "未就绪") {
+		t.Fatalf("degraded port must never have FailureSummary='正常', got %q", pc.FailureSummary)
+	}
+}

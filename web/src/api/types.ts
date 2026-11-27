@@ -546,6 +546,7 @@ export interface ServicePortHealth {
   reachableBackends: number;
   failureKind?: string;
   failureSummary: string;
+  shortOutcome?: string;
   status: 'healthy' | 'degraded' | 'broken' | 'no-endpoints' | 'untested';
   diagnosis: string;
   recommendedAction: 'inspect_empty_backends' | 'check_port_listening' | 'trace_service_dnat' | 'compare_policy_sources' | 'trace_normal';
@@ -563,6 +564,14 @@ export interface ServiceHealthItem {
   probeSourcePod?: string;
   probeSourceNode?: string;
   status: 'healthy' | 'degraded' | 'broken' | 'no-endpoints' | 'headless' | 'untested';
+  statusLabel?: string;
+  portSummary?: string;
+  totalPorts?: number;
+  testedPorts?: number;
+  healthyPorts?: number;
+  failedPorts?: number;
+  degradedPorts?: number;
+  untestedPorts?: number;
   totalBackends: number;
   readyBackends: number;
   reachableBackends: number;
@@ -814,10 +823,15 @@ export interface IncidentSnapshot {
   backendPort?: number;
   protocol: string;
   initialResult: string;
+  initialStatus?: string;
+  initialFailureSummary?: string;
+  initialBackendState?: string;
   failureKind?: string;
   failureSummary: string;
   initialLatencyMs?: number;
   initialBackends?: string[];
+  recoveredAt?: string;
+  recoveryNarrative?: string;
   timeline?: ClusterChangeEvent[];
   retests?: IncidentRetestRecord[];
 }

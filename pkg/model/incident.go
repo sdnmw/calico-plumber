@@ -34,13 +34,18 @@ type IncidentSnapshot struct {
 	ServicePort       int                    `json:"servicePort,omitempty"`
 	BackendPort       int                    `json:"backendPort,omitempty"`
 	Protocol          string                 `json:"protocol"`
-	InitialResult     string                 `json:"initialResult"` // failed, degraded
-	FailureKind       string                 `json:"failureKind,omitempty"`
-	FailureSummary    string                 `json:"failureSummary"`
-	InitialLatencyMs  float64                `json:"initialLatencyMs,omitempty"`
-	InitialBackends   []string               `json:"initialBackends,omitempty"`
-	Timeline          []ClusterChangeEvent   `json:"timeline"`
-	Retests           []IncidentRetestRecord `json:"retests,omitempty"`
+	InitialResult         string                 `json:"initialResult"`                   // broken, degraded, failed
+	InitialStatus         string                 `json:"initialStatus,omitempty"`         // immutable initial status
+	InitialFailureSummary string                 `json:"initialFailureSummary,omitempty"` // immutable initial failure summary (never overwritten by recovery; "原因待确认" if no evidence)
+	InitialBackendState   string                 `json:"initialBackendState,omitempty"`   // e.g. "端口 8080/TCP · 后端 Ready 1/2，实测可达 1/1"
+	FailureKind           string                 `json:"failureKind,omitempty"`
+	FailureSummary        string                 `json:"failureSummary"`
+	InitialLatencyMs      float64                `json:"initialLatencyMs,omitempty"`
+	InitialBackends       []string               `json:"initialBackends,omitempty"`
+	RecoveredAt           *time.Time             `json:"recoveredAt,omitempty"`
+	RecoveryNarrative     string                 `json:"recoveryNarrative,omitempty"`
+	Timeline              []ClusterChangeEvent   `json:"timeline"`
+	Retests               []IncidentRetestRecord `json:"retests,omitempty"`
 }
 
 // IncidentRetestRecord stores one "retest with identical conditions" execution and before/after diff.

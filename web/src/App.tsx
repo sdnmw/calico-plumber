@@ -51,6 +51,10 @@ export default function App() {
     pod: string;
     tool: 'tcpdump' | 'tcp' | 'http';
   } | null>(null);
+  const [healthJumpIntent, setHealthJumpIntent] = useState<{
+    filter: 'all' | 'abnormal' | 'broken' | 'degraded' | 'no-endpoints' | 'healthy';
+    ts: number;
+  } | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
@@ -223,7 +227,15 @@ export default function App() {
 
         {/* Active Page View */}
         <main className="flex-1 min-w-0">
-          {tab === 'overview' && <OverviewPage onNavigate={(t) => setTab(t as NavTab)} />}
+          {tab === 'overview' && (
+            <OverviewPage
+              onNavigate={(t) => setTab(t as NavTab)}
+              onOpenHealth={(filter) => {
+                setHealthJumpIntent(filter ? { filter, ts: Date.now() } : null);
+                setTab('health');
+              }}
+            />
+          )}
           {tab === 'topology' && (
             <TopologyPage
               initialContext={topologyReturnCtx}
@@ -253,7 +265,12 @@ export default function App() {
             />
           )}
           {tab === 'audit' && <AuditPage />}
-          {tab === 'health' && <HealthPage onLaunchTrace={launchTrace} />}
+          {tab === 'health' && (
+            <HealthPage
+              onLaunchTrace={launchTrace}
+              initialFilterIntent={healthJumpIntent}
+            />
+          )}
         </main>
       </div>
 

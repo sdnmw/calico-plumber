@@ -399,7 +399,11 @@ func (s *Store) InspectServiceState(namespace, name string) (*corev1.Service, []
 			item.Serving = ep.Conditions.Serving
 			item.Terminating = ep.Conditions.Terminating
 			if ep.TargetRef != nil {
-				item.TargetPod = ep.TargetRef.Namespace + "/" + ep.TargetRef.Name
+				if ep.TargetRef.Namespace != "" {
+					item.TargetPod = ep.TargetRef.Namespace + "/" + ep.TargetRef.Name
+				} else {
+					item.TargetPod = ep.TargetRef.Name
+				}
 			}
 			if ep.NodeName != nil {
 				item.NodeName = *ep.NodeName
