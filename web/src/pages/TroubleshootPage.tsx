@@ -386,7 +386,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
                   title: '只有跨节点访问失败',
                   desc: '核验跨节点连通性与策略差异，直接发起跨节点逐跳 TraceFlow',
                   icon: GitBranch,
-                  accent: 'text-[#155A96] dark:text-[#7EB8E8]',
+                  accent: 'text-[#9E4A05] dark:text-[#FBB040]',
                 },
               ] as const
             ).map((card) => {
@@ -573,7 +573,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
                       {symptom === 'cross_node' && onNavigate && (
                         <button
                           onClick={() => onNavigate('audit')}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#EDF5FC] text-[#155A96] border border-[#C4DCF0] text-xs font-semibold"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] hover:bg-[#FDE6C4] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40 text-xs font-semibold transition"
                         >
                           查看 BGP 邻居与三层路由一致性
                         </button>
@@ -629,7 +629,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
                       {onNavigate && (
                         <button
                           onClick={() => onNavigate('audit')}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#EDF5FC] text-[#155A96] border border-[#C4DCF0] text-xs font-semibold"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] hover:bg-[#FDE6C4] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40 text-xs font-semibold transition"
                         >
                           <Radio className="w-3.5 h-3.5" /> 检测 DF Path MTU 与出向 NAT 端口冲突
                         </button>
@@ -663,7 +663,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
                           </span>
                         </div>
                         <div className="text-[11px] text-[#574D44] dark:text-[#A39587]">
-                          <span className="px-1.5 py-0.2 rounded bg-[#EDF5FC] text-[#155A96] text-[10px] mr-1.5">按配置推算</span>
+                          <span className="px-1.5 py-0.2 rounded bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] text-[10px] mr-1.5">按配置推算</span>
                           出站策略命中：{o.egressPolicies?.length || 0} 条
                         </div>
                       </div>
@@ -715,7 +715,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-[#574D44] dark:text-[#D5C9BC]">
               <span className="px-2 py-1 rounded bg-[#F7F3EE] dark:bg-[#25201C]">IP: <b>{podDetail.pod.ip}</b></span>
               <span className="px-2 py-1 rounded bg-[#F7F3EE] dark:bg-[#25201C]">Node: <b>{podDetail.pod.nodeName}</b></span>
-              {podDetail.hostVeth && <span className="px-2 py-1 rounded bg-[#EDF5FC] dark:bg-[#155A96]/25 text-[#155A96] dark:text-[#7EB8E8] border border-[#C4DCF0] dark:border-[#4B84B8]/40">veth: <b>{podDetail.hostVeth}</b></span>}
+              {podDetail.hostVeth && <span className="px-2 py-1 rounded bg-[#FFF4E4] dark:bg-[#F08C18]/20 text-[#9E4A05] dark:text-[#FBB040] border border-[#FAD4A1] dark:border-[#F08C18]/40">veth: <b>{podDetail.hostVeth}</b></span>}
               {podDetail.podMTU ? <span className="px-2 py-1 rounded bg-[#F7F3EE] dark:bg-[#25201C]">MTU: {podDetail.podMTU}</span> : null}
               <span className="px-2 py-1 rounded bg-[#F7F3EE] dark:bg-[#25201C]">Policies: {podDetail.networkPolicies?.length || 0}</span>
             </div>
@@ -845,7 +845,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
                 <button
                   key={p.label}
                   onClick={() => setBpfFilter(p.val)}
-                  className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-600 dark:text-slate-300 font-mono"
+                  className="px-2 py-0.5 rounded bg-[#F7F3EE] dark:bg-[#25201C] hover:bg-[#FFF4E4] dark:hover:bg-[#F08C18]/20 text-[#574D44] dark:text-[#D5C9BC] font-mono border border-[#E9E1D6] dark:border-[#2E2721]"
                 >
                   {p.label}
                 </button>
@@ -880,12 +880,12 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
                     key={fr.number}
                     onClick={() => setSelectedFrame(fr)}
                     className={`cursor-pointer hover:bg-slate-800/80 ${
-                      selectedFrame?.number === fr.number ? 'bg-blue-950/70' : ''
+                      selectedFrame?.number === fr.number ? 'bg-[#F08C18]/25' : ''
                     }`}
                   >
                     <td className="px-3 py-1 text-slate-500">{fr.number}</td>
                     <td className="px-3 py-1 text-slate-400">{fr.relTimeMs.toFixed(2)}</td>
-                    <td className="px-3 py-1 text-sky-300">
+                    <td className="px-3 py-1 text-[#FBB040]">
                       {fr.srcIP}{fr.srcPort ? `:${fr.srcPort}` : ''}
                     </td>
                     <td className="px-3 py-1 text-emerald-300">
@@ -1008,13 +1008,13 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
                                   ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
                                   : st.step === 'SYN-ACK'
                                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                                    : 'bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40'
                               }`}
                             >
                               {st.step}
                             </span>
                             {st.direction === 'outbound' ? (
-                              <ArrowRight className="w-4 h-4 text-blue-500 shrink-0" />
+                              <ArrowRight className="w-4 h-4 text-[#F08C18] shrink-0" />
                             ) : st.direction === 'inbound' ? (
                               <ArrowLeft className="w-4 h-4 text-emerald-500 shrink-0" />
                             ) : (
@@ -1120,7 +1120,7 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
                     <div className="font-mono text-[11px] space-y-1 max-h-[220px] overflow-auto">
                       {Object.entries(httpResult.responseHeaders || {}).map(([k, v]) => (
                         <div key={k}>
-                          <span className="text-blue-600 dark:text-blue-400">{k}:</span>{' '}
+                          <span className="text-[#9E4A05] dark:text-[#FBB040]">{k}:</span>{' '}
                           <span className="text-slate-700 dark:text-slate-300">{v.join(', ')}</span>
                         </div>
                       ))}
@@ -1147,8 +1147,8 @@ export function TroubleshootPage({ initialTarget, onLaunchTrace, onNavigate }: T
 function HTTPWaterfallBar({ r }: { r: HTTPProbeResponse }) {
   const total = Math.max(r.totalMs, 0.1);
   const segs = [
-    { label: 'DNS 解析', ms: r.dnsLookupMs, color: 'bg-sky-500' },
-    { label: 'TCP 建连', ms: r.tcpConnectMs, color: 'bg-indigo-500' },
+    { label: 'DNS 解析', ms: r.dnsLookupMs, color: 'bg-[#FBB040]' },
+    { label: 'TCP 建连', ms: r.tcpConnectMs, color: 'bg-[#F08C18]' },
     { label: 'TLS 握手', ms: r.tlsHandshakeMs, color: 'bg-violet-500' },
     { label: 'TTFB 等待', ms: r.serverWaitTtfbMs, color: 'bg-amber-500' },
     { label: '内容传输', ms: r.contentTransferMs, color: 'bg-emerald-500' },

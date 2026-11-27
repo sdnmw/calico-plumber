@@ -7,7 +7,7 @@ export function EncapBadge({ mode }: { mode: string }) {
     ? 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/50 dark:text-violet-300 dark:border-violet-800'
     : m.includes('IPIP')
       ? 'bg-[#FFF4E4] text-[#9E4A05] border-[#FAD4A1] dark:bg-[#F08C18]/15 dark:text-[#FBB040] dark:border-[#F08C18]/40'
-      : 'bg-[#EDF5FC] text-[#155A96] border-[#C4DCF0] dark:bg-[#155A96]/25 dark:text-[#7EB8E8] dark:border-[#155A96]/50';
+      : 'bg-[#FFF4E4] text-[#9E4A05] border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40';
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${style}`}>
       <Layers className="w-3 h-3" />
@@ -24,7 +24,7 @@ export function EngineBadge({ engine, reason }: { engine: string; reason?: strin
       className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
         isEBPF
           ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
-          : 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800'
+          : 'bg-[#FFF4E4] text-[#9E4A05] border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40'
       }`}
     >
       <Cpu className="w-3 h-3" />

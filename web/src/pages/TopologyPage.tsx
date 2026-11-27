@@ -59,16 +59,16 @@ function ServiceNodeCard({ data, selected }: NodeProps) {
   const isFocal = Boolean(data.isFocal);
   const accent =
     n.kind === 'Service'
-      ? 'border-l-teal-500'
+      ? 'border-l-[#F08C18]'
       : n.kind === 'External'
-        ? 'border-l-amber-500'
+        ? 'border-l-[#D9720B]'
         : n.kind === 'Node'
-          ? 'border-l-slate-500'
+          ? 'border-l-[#8C7F73]'
           : n.kind === 'DaemonSet'
-            ? 'border-l-violet-500'
+            ? 'border-l-[#B85A08]'
             : n.kind === 'StatefulSet'
-              ? 'border-l-indigo-500'
-              : 'border-l-blue-500';
+              ? 'border-l-[#9E4A05]'
+              : 'border-l-[#F08C18]';
 
   const healthDot =
     n.health === 'critical' ? 'bg-rose-500' : n.health === 'warning' ? 'bg-amber-500' : 'bg-emerald-500';
@@ -112,7 +112,7 @@ function ServiceNodeCard({ data, selected }: NodeProps) {
             {n.ports.slice(0, 3).map((pt) => (
               <span
                 key={pt}
-                className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#EDF5FC] dark:bg-[#155A96]/25 text-[#155A96] dark:text-[#7EB8E8] border border-[#C4DCF0] dark:border-[#4B84B8]/40"
+                className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#FFF4E4] dark:bg-[#F08C18]/18 text-[#9E4A05] dark:text-[#FBB040] border border-[#FAD4A1] dark:border-[#F08C18]/40"
               >
                 {pt}
               </span>
@@ -568,24 +568,22 @@ export function TopologyPage({ initialContext, onLaunchTrace, onLaunchTCPDump }:
       <div className="px-4 py-2.5 bg-white dark:bg-[#1C1815] border-b border-[#E9E1D6] dark:border-[#2E2721] flex flex-wrap items-center justify-between gap-3 shrink-0">
         <div className="flex flex-wrap items-center gap-2">
           {/* View mode toggle: 看异常连接 (default) vs 全景视图 */}
-          <div className="inline-flex rounded-lg bg-[#FFF4E4] dark:bg-[#2A221B] p-0.5 border border-[#FAD4A1] dark:border-[#F08C18]/40">
+          <div className="inline-flex rounded-lg bg-[#F7F3EE] dark:bg-[#25201C] p-0.5 border border-[#E9E1D6] dark:border-[#2E2721]">
             <button
               onClick={() => setViewMode('anomaly')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition ${
                 viewMode === 'anomaly'
-                  ? 'bg-[#F08C18] text-white shadow-sm font-semibold'
-                  : 'text-[#6C4824] dark:text-[#D5C9BC] hover:text-[#201B18] dark:hover:text-[#F5F0EA]'
+                  ? 'bg-[#FFF4E4] text-[#9E4A05] border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40 font-semibold shadow-xs'
+                  : 'border-transparent text-[#574D44] dark:text-[#A39587] hover:text-[#201B18] dark:hover:text-[#F5F0EA]'
               }`}
             >
-              <AlertTriangle className="w-3.5 h-3.5" />
+              <AlertTriangle className="w-3.5 h-3.5 text-[#D9720B] dark:text-[#FBB040]" />
               看异常连接
               <span
                 className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                  viewMode === 'anomaly'
-                    ? 'bg-white/20 text-white'
-                    : anomalousEdges.length > 0
-                      ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
-                      : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                  anomalousEdges.length > 0
+                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
                 }`}
               >
                 {anomalousEdges.length}
@@ -593,10 +591,10 @@ export function TopologyPage({ initialContext, onLaunchTrace, onLaunchTCPDump }:
             </button>
             <button
               onClick={() => setViewMode('panorama')}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition ${
                 viewMode === 'panorama'
-                  ? 'bg-[#155A96] text-white shadow-sm font-semibold'
-                  : 'text-[#6C4824] dark:text-[#D5C9BC] hover:text-[#201B18] dark:hover:text-[#F5F0EA]'
+                  ? 'bg-[#FFF4E4] text-[#9E4A05] border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40 font-semibold shadow-xs'
+                  : 'border-transparent text-[#574D44] dark:text-[#A39587] hover:text-[#201B18] dark:hover:text-[#F5F0EA]'
               }`}
             >
               <Compass className="w-3.5 h-3.5" />
@@ -682,7 +680,7 @@ export function TopologyPage({ initialContext, onLaunchTrace, onLaunchTCPDump }:
                 全局: <b>{graph.summary.nodeCount}</b> 节点 / <b>{graph.summary.edgeCount}</b> 连线
               </span>
               <span>
-                吞吐: <b className="text-[#155A96] dark:text-[#7EB8E8]">{formatBps(graph.summary.totalBytesPerSec)}</b>
+                吞吐: <b className="text-[#9E4A05] dark:text-[#FBB040]">{formatBps(graph.summary.totalBytesPerSec)}</b>
               </span>
               <span>
                 均值延迟: <b className="text-emerald-600 dark:text-emerald-400">{formatLatency(graph.summary.avgLatencyMs)}</b>
@@ -747,7 +745,7 @@ export function TopologyPage({ initialContext, onLaunchTrace, onLaunchTCPDump }:
                     )}
                     <button
                       onClick={() => setViewMode('panorama')}
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-[#155A96] text-white hover:bg-[#0E4373]"
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] hover:bg-[#FDE6C4] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40 transition"
                     >
                       切换到全景视图
                     </button>
@@ -781,7 +779,7 @@ export function TopologyPage({ initialContext, onLaunchTrace, onLaunchTCPDump }:
                             {srcLabel} <span className="text-[#F08C18]">→</span> {dstLabel}
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px]">
-                            <span className="px-1.5 py-0.5 rounded bg-[#EDF5FC] dark:bg-[#155A96]/25 text-[#155A96] dark:text-[#7EB8E8] font-mono font-medium">
+                            <span className="px-1.5 py-0.5 rounded bg-[#FFF4E4] dark:bg-[#F08C18]/20 text-[#9E4A05] dark:text-[#FBB040] border border-[#FAD4A1] dark:border-[#F08C18]/40 font-mono font-medium">
                               {edge.primaryLabel}
                             </span>
                             {edge.crossNode && (
@@ -831,7 +829,7 @@ export function TopologyPage({ initialContext, onLaunchTrace, onLaunchTCPDump }:
                         {/* Honest ratio & per-MB explanation */}
                         {(edge.estRetransmitRatePct || edge.retransmitPerMB || edge.rateNote) && (
                           <div className="flex items-start gap-1 text-[10px] text-[#6C5D4F] dark:text-[#A39587] leading-snug">
-                            <Info className="w-3 h-3 shrink-0 mt-0.5 text-[#155A96] dark:text-[#7EB8E8]" />
+                            <Info className="w-3 h-3 shrink-0 mt-0.5 text-[#D9720B] dark:text-[#FBB040]" />
                             <span>
                               {edge.estRetransmitRatePct && edge.estRetransmitRatePct > 0 ? (
                                 <b className="font-mono text-[#201B18] dark:text-[#F5F0EA] mr-1">
@@ -918,7 +916,7 @@ export function TopologyPage({ initialContext, onLaunchTrace, onLaunchTCPDump }:
               </span>
               <button
                 onClick={() => setViewMode('panorama')}
-                className="px-2 py-0.5 rounded-md bg-[#EDF5FC] dark:bg-[#155A96]/30 text-[#155A96] dark:text-[#7EB8E8] font-medium hover:underline"
+                className="px-2 py-0.5 rounded-md bg-[#FFF4E4] dark:bg-[#F08C18]/20 text-[#9E4A05] dark:text-[#FBB040] border border-[#FAD4A1] dark:border-[#F08C18]/40 font-semibold hover:bg-[#FDE6C4] transition"
               >
                 展开全景（{graph.summary.nodeCount} 节点）
               </button>
@@ -1002,7 +1000,7 @@ export function TopologyPage({ initialContext, onLaunchTrace, onLaunchTCPDump }:
                   className="p-2.5 rounded-lg border border-[#E9E1D6] dark:border-[#2E2721] bg-[#FAF6F1] dark:bg-[#14110F] space-y-1.5 text-[11px]"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono font-semibold text-[#155A96] dark:text-[#7EB8E8]">
+                    <span className="font-mono font-semibold text-[#9E4A05] dark:text-[#FBB040]">
                       {f.protocol} :{f.dstPort}
                     </span>
                     <div className="flex items-center gap-1.5">
@@ -1120,7 +1118,7 @@ export function TopologyPage({ initialContext, onLaunchTrace, onLaunchTCPDump }:
                             className="text-[#201B18] dark:text-[#F5F0EA] font-sans font-medium truncate cursor-default"
                           >
                             {f.viaService ? (
-                              <span className="text-[#155A96] dark:text-[#7EB8E8]">[{f.viaService.serviceName}] → </span>
+                              <span className="text-[#9E4A05] dark:text-[#FBB040]">[{f.viaService.serviceName}] → </span>
                             ) : null}
                             {f.dst.displayName}
                           </div>
@@ -1170,7 +1168,7 @@ export function TopologyPage({ initialContext, onLaunchTrace, onLaunchTCPDump }:
                           className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                             f.engine === 'ebpf'
                               ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
-                              : 'bg-[#EDF5FC] text-[#155A96] dark:bg-[#155A96]/25 dark:text-[#7EB8E8]'
+                              : 'bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40'
                           }`}
                         >
                           {f.engine === 'ebpf' ? 'ebpf' : 'legacy'}

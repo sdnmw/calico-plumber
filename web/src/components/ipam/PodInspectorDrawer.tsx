@@ -47,7 +47,7 @@ export function PodInspectorDrawer({
         <div className="px-5 py-4 border-b border-[#E9E1D6] dark:border-[#2E2721] flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 text-[11px] font-medium rounded bg-[#EDF5FC] text-[#155A96] border border-[#C4DCF0] dark:bg-[#155A96]/25 dark:text-[#7EB8E8] dark:border-[#4B84B8]/40">
+              <span className="px-2 py-0.5 text-[11px] font-medium rounded bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40">
                 {namespace}
               </span>
               {detail && <StatusPill status={detail.pod.ready ? 'Ready' : detail.pod.phase} />}
@@ -184,7 +184,7 @@ export function PodInspectorDrawer({
                           <tr key={i}>
                             <td className="px-2.5 py-1.5">{r.dst}</td>
                             <td className="px-2.5 py-1.5 text-slate-500">{r.gateway || 'direct'}</td>
-                            <td className="px-2.5 py-1.5 text-blue-600 dark:text-blue-400">{r.dev}</td>
+                            <td className="px-2.5 py-1.5 text-[#9E4A05] dark:text-[#FBB040]">{r.dev}</td>
                           </tr>
                         ))}
                       </tbody>

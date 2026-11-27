@@ -463,12 +463,12 @@ export function LayeredTraceTopology({
         className={`mb-2 px-3 py-1.5 rounded-lg border flex flex-wrap items-center justify-between gap-2 text-[11px] ${
           isDrop
             ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200'
-            : 'bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-900 text-sky-900 dark:text-sky-200'
+            : 'bg-[#FFF4E4] dark:bg-[#F08C18]/18 border-[#FAD4A1] dark:border-[#F08C18]/40 text-[#9E4A05] dark:text-[#FBB040]'
         }`}
       >
         <div className="flex items-center gap-2 min-w-0">
           <span
-            className={`w-2 h-2 rounded-full shrink-0 animate-pulse ${isDrop ? 'bg-rose-500' : 'bg-sky-500'}`}
+            className={`w-2 h-2 rounded-full shrink-0 animate-pulse ${isDrop ? 'bg-rose-500' : 'bg-[#F08C18]'}`}
           />
           <span className="font-mono font-bold shrink-0">
             步骤 {activeStep + 1}/{playableHops.length}
@@ -485,7 +485,7 @@ export function LayeredTraceTopology({
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="w-24 h-1.5 rounded-full bg-white/80 dark:bg-slate-800 overflow-hidden">
             <div
-              className={`h-full transition-all duration-300 ${isDrop ? 'bg-rose-500' : 'bg-sky-500'}`}
+              className={`h-full transition-all duration-300 ${isDrop ? 'bg-rose-500' : 'bg-[#F08C18]'}`}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -568,9 +568,9 @@ export function LayeredTraceTopology({
                       />
                     </ContainerBox>
                   ) : (
-                    <div className="h-full rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/45 dark:bg-indigo-950/25 px-2.5 py-1.5 space-y-1">
+                    <div className="h-full rounded-lg border border-[#FAD4A1] dark:border-[#F08C18]/40 bg-[#FFF4E4]/65 dark:bg-[#F08C18]/12 px-2.5 py-1.5 space-y-1">
                       <div className="flex items-center justify-between gap-2 text-[10px]">
-                        <span className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+                        <span className="font-bold text-[#9E4A05] dark:text-[#FBB040] flex items-center gap-1">
                           <Terminal className="w-3 h-3" />
                           OS 用户态 · hostNetwork (无容器 Netns)
                         </span>
@@ -796,8 +796,8 @@ export function LayeredTraceTopology({
                     )}
                   </ContainerBox>
                 </div>
-                <div className="md:col-span-4 rounded-lg border border-indigo-200/80 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 px-2 py-1.5 flex flex-col justify-between gap-1">
-                  <div className="text-[10px] font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-1">
+                <div className="md:col-span-4 rounded-lg border border-[#E9E1D6] dark:border-[#2E2721] bg-[#FAF6F1] dark:bg-[#221D19] px-2 py-1.5 flex flex-col justify-between gap-1">
+                  <div className="text-[10px] font-bold text-[#9E4A05] dark:text-[#FBB040] flex items-center gap-1">
                     <Terminal className="w-3 h-3 shrink-0" />
                     OS 用户态 (控制面)
                   </div>
@@ -956,13 +956,13 @@ export function LayeredTraceTopology({
                         </ContainerBox>
                       )}
                     </div>
-                    <div className="md:col-span-4 rounded-lg border border-indigo-200/80 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 px-2 py-1.5 flex flex-col justify-between gap-1">
-                      <div className="text-[10px] font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-1">
+                    <div className="md:col-span-4 rounded-lg border border-[#E9E1D6] dark:border-[#2E2721] bg-[#FAF6F1] dark:bg-[#221D19] px-2 py-1.5 flex flex-col justify-between gap-1">
+                      <div className="text-[10px] font-bold text-[#9E4A05] dark:text-[#FBB040] flex items-center gap-1">
                         <Terminal className="w-3 h-3 shrink-0" />
                         OS 用户态 (控制面)
                       </div>
                       <ControlPlanePill name="calico-node" detail="Felix/BIRD" />
-                      <span className="text-[9px] font-mono text-indigo-600/75 dark:text-indigo-400/75">↓ Ingress Policy</span>
+                      <span className="text-[9px] font-mono text-[#B85A08]/80 dark:text-[#FBB040]/80">↓ Ingress Policy</span>
                     </div>
                   </div>
                 ) : (
@@ -971,9 +971,9 @@ export function LayeredTraceTopology({
                       <span className="text-[10px] font-semibold text-slate-500">容器层 (跳过)</span>
                       <span className="text-[9px] text-slate-400">hostNetwork / Node</span>
                     </div>
-                    <div className="md:col-span-8 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/45 dark:bg-indigo-950/25 px-2.5 py-1.5 space-y-1">
+                    <div className="md:col-span-8 rounded-lg border border-[#FAD4A1] dark:border-[#F08C18]/40 bg-[#FFF4E4]/65 dark:bg-[#F08C18]/12 px-2.5 py-1.5 space-y-1">
                       <div className="flex items-center justify-between text-[10px]">
-                        <span className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+                        <span className="font-bold text-[#9E4A05] dark:text-[#FBB040] flex items-center gap-1">
                           <Terminal className="w-3 h-3" />
                           OS 用户态 · hostNetwork
                         </span>
@@ -1324,7 +1324,7 @@ function OSHeaderBar({
   return (
     <div className="px-3 py-1 bg-slate-100/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2 text-[10px]">
       <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-200 min-w-0">
-        <Cpu className="w-3 h-3 text-indigo-500 shrink-0" />
+        <Cpu className="w-3 h-3 text-[#D9720B] shrink-0" />
         <span className="truncate">宿主机 OS · {osImage}</span>
         <span className="font-mono font-normal text-slate-500 dark:text-slate-400 hidden sm:inline truncate">
           ({kernelVersion})
@@ -1352,14 +1352,14 @@ function ContainerBox({
   children: React.ReactNode;
 }) {
   return (
-    <div className="h-full rounded-lg border border-sky-200 dark:border-sky-800/80 bg-white dark:bg-slate-900 px-2 py-1 space-y-1">
+    <div className="h-full rounded-lg border border-[#FAD4A1] dark:border-[#F08C18]/40 bg-white dark:bg-[#1C1815] px-2 py-1 space-y-1">
       <div className="flex items-center justify-between gap-2 text-[10px]">
-        <span className="font-bold text-sky-700 dark:text-sky-400 flex items-center gap-1 truncate">
-          <Box className="w-3 h-3 text-sky-500 shrink-0" />
+        <span className="font-bold text-[#9E4A05] dark:text-[#FBB040] flex items-center gap-1 truncate">
+          <Box className="w-3 h-3 text-[#F08C18] shrink-0" />
           {role}
         </span>
         {ip && (
-          <span className="shrink-0 px-1.5 py-0 rounded bg-sky-50 dark:bg-sky-950/60 font-mono text-[9px] text-sky-700 dark:text-sky-300">
+          <span className="shrink-0 px-1.5 py-0 rounded bg-[#FFF4E4] dark:bg-[#F08C18]/20 font-mono text-[9px] text-[#9E4A05] dark:text-[#FBB040] border border-[#FAD4A1] dark:border-[#F08C18]/40">
             {ip}
             {port ? `:${port}` : ''}
           </span>
@@ -1372,8 +1372,8 @@ function ContainerBox({
 
 function ControlPlanePill({ name, detail }: { name: string; detail: string }) {
   return (
-    <div className="inline-flex items-center gap-1 rounded bg-white/90 dark:bg-slate-900/90 border border-indigo-200/80 dark:border-indigo-800/60 px-1.5 py-0.5 text-[9px] font-mono">
-      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+    <div className="inline-flex items-center gap-1 rounded bg-white/90 dark:bg-slate-900/90 border border-[#FAD4A1] dark:border-[#F08C18]/40 px-1.5 py-0.5 text-[9px] font-mono">
+      <span className="w-1.5 h-1.5 rounded-full bg-[#F08C18] shrink-0" />
       <span className="font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">{name}</span>
       <span className="text-slate-400">·</span>
       <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap">{detail}</span>
@@ -1423,8 +1423,8 @@ function NodeBaseplate({
   return (
     <div className="px-3 py-1 bg-slate-900 dark:bg-black text-slate-100 flex flex-wrap items-center justify-between gap-2 text-[10px]">
       <div className="flex items-center gap-1.5 min-w-0">
-        <Server className="w-3 h-3 text-blue-400 shrink-0" />
-        <span className="px-1.5 py-0 rounded bg-slate-800 text-blue-300 font-mono text-[9px] uppercase shrink-0">
+        <Server className="w-3 h-3 text-[#FBB040] shrink-0" />
+        <span className="px-1.5 py-0 rounded bg-slate-800 text-[#FBB040] font-mono text-[9px] uppercase shrink-0">
           {roleLabel}
         </span>
         <span className="font-mono font-bold text-white truncate">{nodeName}</span>
@@ -1509,7 +1509,7 @@ const CompactHopRow = React.forwardRef<
     playState === 'active'
       ? isBad
         ? 'border-rose-500 tf-hop-drop-active relative z-10'
-        : 'border-sky-500 bg-sky-50/40 dark:bg-sky-950/30 tf-hop-active relative z-10'
+        : 'border-[#F08C18] bg-[#FFF4E4]/65 dark:bg-[#F08C18]/18 tf-hop-active relative z-10'
       : playState === 'visited'
         ? 'border-emerald-300/90 dark:border-emerald-800'
         : playState === 'pending'
@@ -1534,7 +1534,7 @@ const CompactHopRow = React.forwardRef<
       ref={ref}
       onClick={onClick}
       className={`w-full text-left rounded-lg border px-2 py-1 transition-all duration-300 hover:shadow-sm ${baseCls} ${playCls} ${
-        selected && playState === 'idle' ? 'ring-2 ring-blue-500 border-blue-400' : ''
+        selected && playState === 'idle' ? 'ring-2 ring-[#F08C18] border-[#F08C18]' : ''
       }`}
     >
       <div className="flex items-center justify-between gap-1.5">

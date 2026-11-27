@@ -55,7 +55,7 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
           </h1>
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white dark:bg-[#1C1815] border border-[#E9E1D6] dark:border-[#2E2721] shadow-[0_1px_2px_rgba(32,27,24,0.03)] text-[#201B18] dark:text-[#F5F0EA]">
-              <span className="w-2 h-2 rounded-full bg-[#155A96] dark:bg-[#7EB8E8]" />
+              <span className="w-2 h-2 rounded-full bg-[#F08C18]" />
               <span className="text-[#8C7F73] dark:text-[#A39587]">Kubernetes</span>
               <span className="font-mono font-semibold">{data.k8sVersion}</span>
             </span>
@@ -84,8 +84,8 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
       {/* Primary KPI Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard
-          icon={<Layers className="w-4 h-4 text-[#155A96] dark:text-[#7EB8E8]" />}
-          iconBg="bg-[#EDF5FC] border-[#C4DCF0] dark:bg-[#155A96]/25 dark:border-[#4B84B8]/40"
+          icon={<Layers className="w-4 h-4 text-[#D9720B] dark:text-[#FBB040]" />}
+          iconBg="bg-[#FFF4E4] border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:border-[#F08C18]/40"
           label="Calico 网络模式"
           value={data.primaryEncapMode}
           sub={`Dataplane: ${data.linuxDataplane} · MTU ${data.mtu}`}
@@ -116,8 +116,8 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
           onClick={() => onNavigate('topology')}
         />
         <KpiCard
-          icon={<Cpu className="w-4 h-4 text-[#155A96] dark:text-[#7EB8E8]" />}
-          iconBg="bg-[#EDF5FC] border-[#C4DCF0] dark:bg-[#155A96]/25 dark:border-[#4B84B8]/40"
+          icon={<Cpu className="w-4 h-4 text-[#D9720B] dark:text-[#FBB040]" />}
+          iconBg="bg-[#FFF4E4] border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:border-[#F08C18]/40"
           label="节点遥测引擎分布"
           value={`${data.globalTraffic.ebpfNodes} eBPF · ${data.globalTraffic.conntrackNodes} Legacy`}
           sub={`总节点 ${data.nodes.length} · 总 Pod ${data.podCount}`}
@@ -176,7 +176,7 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono border ${
                             tif.type === 'vxlan' || tif.type === 'ipip'
                               ? 'bg-[#FFF4E4] text-[#9E4A05] border-[#FAD4A1] dark:bg-[#F08C18]/15 dark:text-[#FBB040] dark:border-[#F08C18]/40'
-                              : 'bg-[#EDF5FC] text-[#155A96] border-[#C4DCF0] dark:bg-[#155A96]/25 dark:text-[#7EB8E8] dark:border-[#4B84B8]/40'
+                              : 'bg-[#FFF4E4] text-[#9E4A05] border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40'
                           }`}
                         >
                           {tif.name} ({tif.mtu})
@@ -240,7 +240,7 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
                           ? 'bg-rose-500'
                           : pool.utilizationPercent > 65
                             ? 'bg-amber-500'
-                            : 'bg-gradient-to-r from-[#F08C18] to-[#155A96]'
+                            : 'bg-gradient-to-r from-[#F08C18] to-[#D9720B]'
                       }`}
                       style={{ width: `${Math.max(pool.utilizationPercent, 2)}%` }}
                     />
@@ -248,7 +248,7 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
                 </div>
                 <div className="mt-2.5 flex flex-wrap gap-3 text-[11px] text-[#574D44] dark:text-[#A39587]">
                   <span>活跃 Pod: <b className="text-emerald-600 dark:text-emerald-400">{pool.activePodIPs}</b></span>
-                  <span>隧道 IP: <b className="text-[#155A96] dark:text-[#7EB8E8]">{pool.tunnelIPs}</b></span>
+                  <span>隧道 IP: <b className="text-[#9E4A05] dark:text-[#FBB040]">{pool.tunnelIPs}</b></span>
                   <span>借用 IP: <b className="text-[#D9720B] dark:text-[#FBB040]">{pool.borrowedIPs}</b></span>
                   <span>孤儿 IP: <b className="text-rose-600 dark:text-rose-400">{pool.orphanIPs}</b></span>
                   <span>NAT Outgoing: <b className="text-[#201B18] dark:text-[#F5F0EA]">{pool.natOutgoing ? 'Enabled' : 'Disabled'}</b></span>
@@ -272,7 +272,7 @@ export function OverviewPage({ onNavigate }: { onNavigate: (tab: string) => void
                 <span className={`w-1.5 h-1.5 rounded-full ${data.bgpEnabled ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                 BGP {data.bgpEnabled ? 'Enabled' : 'Disabled'}
               </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-[#EDF5FC] text-[#155A96] border border-[#C4DCF0] dark:bg-[#155A96]/25 dark:text-[#7EB8E8] dark:border-[#4B84B8]/40">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40">
                 AS {data.bgpAsNumber || 64512}
               </span>
               <span

@@ -49,11 +49,11 @@ const DRIFT_KIND_LABEL: Record<string, string> = {
 const ARP_ROLE_META: Record<string, { label: string; cls: string }> = {
   gateway: {
     label: '默认网关',
-    cls: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800',
+    cls: 'bg-[#FFF4E4] text-[#9E4A05] border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40',
   },
   'cluster-node': {
     label: '集群节点',
-    cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800',
+    cls: 'bg-[#F7F3EE] text-[#574D44] border-[#E9E1D6] dark:bg-[#25201C] dark:text-[#D5C9BC] dark:border-[#2E2721]',
   },
   'pod-veth': {
     label: 'Pod veth',
@@ -351,13 +351,13 @@ export function AuditPage() {
           >
             <div className="flex items-center justify-between text-[11px] font-semibold text-[#8C7F73]">
               <span>网络模式与 MTU</span>
-              <Layers className="w-3.5 h-3.5 text-[#155A96] dark:text-[#7EB8E8]" />
+              <Layers className="w-3.5 h-3.5 text-[#D9720B] dark:text-[#FBB040]" />
             </div>
             <div className="mt-1.5 flex items-baseline justify-between gap-2">
               <span className="text-base font-bold text-[#201B18] dark:text-[#F5F0EA] truncate">
                 {modeProfile?.encapMode || kernelReport.encapMode}
               </span>
-              <span className="text-[11px] font-mono font-semibold text-[#155A96] dark:text-[#7EB8E8] shrink-0">
+              <span className="text-[11px] font-mono font-semibold text-[#9E4A05] dark:text-[#FBB040] shrink-0">
                 开销 {modeProfile?.encapOverheadBytes ?? 0}B
               </span>
             </div>
@@ -542,11 +542,11 @@ export function AuditPage() {
                   <ArrowRight className="w-4 h-4" />
                 </div>
 
-                <div className="md:col-span-2 p-3 rounded-xl border border-[#C4DCF0] dark:border-[#4B84B8]/40 bg-[#EDF5FC]/70 dark:bg-[#155A96]/20">
-                  <div className="text-[10px] font-semibold uppercase text-[#155A96] dark:text-[#7EB8E8]">2. Calico 路由 / 封装层</div>
+                <div className="md:col-span-2 p-3 rounded-xl border border-[#FAD4A1] dark:border-[#F08C18]/40 bg-[#FFF4E4]/75 dark:bg-[#F08C18]/15">
+                  <div className="text-[10px] font-semibold uppercase text-[#9E4A05] dark:text-[#FBB040]">2. Calico 路由 / 封装层</div>
                   <div className="text-sm font-bold text-[#201B18] dark:text-[#F5F0EA] mt-0.5 flex items-center gap-1.5">
                     <span>{modeProfile?.encapMode || kernelReport.encapMode}</span>
-                    <span className="text-[11px] font-mono font-normal text-[#155A96] dark:text-[#7EB8E8]">
+                    <span className="text-[11px] font-mono font-normal text-[#9E4A05] dark:text-[#FBB040]">
                       (封装头 +{modeProfile?.encapOverheadBytes ?? 0}B)
                     </span>
                   </div>
@@ -745,7 +745,7 @@ export function AuditPage() {
           <SectionCard
             title="Path MTU / DF 大包黑洞探测（验证小包通、大包卡死）"
             subtitle="进入源 Pod 网络命名空间发送带 DF（不允许分片）标志的测试报文，验证物理交换机 / 隧道沿途真实最大 MTU"
-            action={<Ruler className="w-4 h-4 text-blue-500" />}
+            action={<Ruler className="w-4 h-4 text-[#F08C18]" />}
           >
             <div className="p-4 space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
@@ -823,7 +823,7 @@ export function AuditPage() {
                     <button
                       key={t.ip}
                       onClick={() => setPmtudTargetIP(t.ip)}
-                      className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 text-slate-600 dark:text-slate-300 font-mono text-[10px] border border-slate-200/70 dark:border-slate-700 transition"
+                      className="px-2 py-0.5 rounded-md bg-[#F7F3EE] dark:bg-[#25201C] hover:bg-[#FFF4E4] dark:hover:bg-[#F08C18]/20 text-[#574D44] dark:text-[#D5C9BC] font-mono text-[10px] border border-[#E9E1D6] dark:border-[#2E2721] transition"
                     >
                       {t.label}: {t.ip}
                     </button>
@@ -1026,7 +1026,7 @@ export function AuditPage() {
                         <td className="py-2 px-3 font-semibold text-slate-900 dark:text-white">{bp.sourceNode}</td>
                         <td className="py-2 px-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">{bp.name}</td>
                         <td className="py-2 px-3 font-mono text-[11px]">
-                          <span className="font-semibold text-blue-700 dark:text-blue-300">{bp.peerNode || '外部路由器'}</span>
+                          <span className="font-semibold text-[#9E4A05] dark:text-[#FBB040]">{bp.peerNode || '外部路由器'}</span>
                           <span className="text-slate-400 ml-1.5">({bp.peerIP})</span>
                         </td>
                         <td className="py-2 px-3">
@@ -1077,7 +1077,7 @@ export function AuditPage() {
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
                         {DRIFT_KIND_LABEL[d.kind] || d.kind}
                       </span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#FFF4E4] dark:bg-[#F08C18]/20 text-[#9E4A05] dark:text-[#FBB040] border border-[#FAD4A1] dark:border-[#F08C18]/40">
                         {d.nodeName}
                       </span>
                       <span className="text-xs font-mono font-bold text-slate-900 dark:text-white">{d.cidr}</span>
@@ -1242,7 +1242,7 @@ export function AuditPage() {
                                 <tr key={`${rt.dst}-${rt.dev}-${idx}`} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
                                   <td className="py-1.5 px-3 font-semibold text-slate-900 dark:text-white">{rt.dst}</td>
                                   <td className="py-1.5 px-3 text-slate-600 dark:text-slate-300">{rt.gateway || '—'}</td>
-                                  <td className="py-1.5 px-3 text-blue-700 dark:text-blue-300">{rt.dev || '—'}</td>
+                                  <td className="py-1.5 px-3 text-[#9E4A05] dark:text-[#FBB040]">{rt.dev || '—'}</td>
                                   <td className="py-1.5 px-3">
                                     <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                                       {rt.protocol}
@@ -1286,8 +1286,8 @@ export function AuditPage() {
       {subTab === 'l2' && kernelReport && (
         <div className="space-y-4">
           {/* Calico L2 / Proxy ARP Explainer Strip */}
-          <div className="px-4 py-3 rounded-xl bg-[#EDF5FC] dark:bg-[#155A96]/20 border border-[#C4DCF0] dark:border-[#4B84B8]/40 text-xs text-[#155A96] dark:text-[#7EB8E8] flex items-start gap-2.5">
-            <Cable className="w-4 h-4 text-[#155A96] dark:text-[#7EB8E8] mt-0.5 shrink-0" />
+          <div className="px-4 py-3 rounded-xl bg-[#FFF4E4] dark:bg-[#F08C18]/15 border border-[#FAD4A1] dark:border-[#F08C18]/40 text-xs text-[#9E4A05] dark:text-[#FBB040] flex items-start gap-2.5">
+            <Cable className="w-4 h-4 text-[#D9720B] dark:text-[#FBB040] mt-0.5 shrink-0" />
             <div>
               <b>Calico 二层工作原理提示：</b>
               Pod 内部把 <span className="font-mono font-semibold">169.254.1.1</span> 作为默认网关，宿主机侧 <span className="font-mono font-semibold">cali*</span> veth 通过开启 <b>Proxy ARP</b> 代答容器的 ARP 请求（返回虚拟 MAC <span className="font-mono">ee:ee:ee:ee:ee:ee</span>）；跨节点通信则依赖物理网卡对同网段集群节点或默认网关的正常 ARP MAC 解析。
@@ -1435,7 +1435,7 @@ export function AuditPage() {
                           <td className="py-2 px-3 font-sans text-slate-700 dark:text-slate-300">
                             {nb.peerName || (nb.role === 'gateway' ? '默认三层网关' : '—')}
                           </td>
-                          <td className="py-2 px-3 text-blue-700 dark:text-blue-300">{nb.dev || '—'}</td>
+                          <td className="py-2 px-3 text-[#9E4A05] dark:text-[#FBB040]">{nb.dev || '—'}</td>
                           <td className="py-2 px-3">
                             <span className={`px-2 py-0.5 rounded border text-[10px] font-semibold ${arpStateClass(nb.state)}`}>
                               {nb.state}

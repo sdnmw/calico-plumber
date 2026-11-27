@@ -744,7 +744,7 @@ export function TraceFlowPage({ initialReq, returnTopologyCtx, onReturnTopology 
                           }`}
                         >
                           <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                            {lane.key === 'fabric' ? <Globe className="w-3.5 h-3.5 text-violet-500" /> : <Cpu className="w-3.5 h-3.5 text-blue-500" />}
+                            {lane.key === 'fabric' ? <Globe className="w-3.5 h-3.5 text-[#D9720B]" /> : <Cpu className="w-3.5 h-3.5 text-[#F08C18]" />}
                             {lane.title}
                           </div>
 
@@ -766,7 +766,7 @@ export function TraceFlowPage({ initialReq, returnTopologyCtx, onReturnTopology 
 
                         {lIdx < lanes.length - 1 && (
                           <div className="flex items-center">
-                            <ArrowRight className="w-5 h-5 text-blue-500 shrink-0" />
+                            <ArrowRight className="w-5 h-5 text-[#F08C18] shrink-0" />
                           </div>
                         )}
                       </React.Fragment>
@@ -802,12 +802,12 @@ export function TraceFlowPage({ initialReq, returnTopologyCtx, onReturnTopology 
 
             {/* Selected Hop Inspector */}
             {selectedHop && (
-              <div className="px-5 py-3.5 bg-blue-50/50 dark:bg-blue-950/20 border-t border-blue-200/70 dark:border-blue-900/60 text-xs space-y-1.5">
+              <div className="px-5 py-3.5 bg-[#FFF4E4]/65 dark:bg-[#F08C18]/10 border-t border-[#FAD4A1] dark:border-[#F08C18]/40 text-xs space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
+                  <div className="flex items-center gap-2 font-semibold text-[#201B18] dark:text-[#F5F0EA]">
                     <span>Hop #{selectedHop.index}: {selectedHop.title}</span>
                     <StatusPill status={selectedHop.status} />
-                    {selectedHop.interface && <span className="font-mono text-blue-600 dark:text-blue-400">iface: {selectedHop.interface}</span>}
+                    {selectedHop.interface && <span className="font-mono text-[#9E4A05] dark:text-[#FBB040]">iface: {selectedHop.interface}</span>}
                   </div>
                   <span className="font-mono text-slate-500">+{selectedHop.deltaMs || 0} ms</span>
                 </div>
@@ -851,7 +851,7 @@ export function TraceFlowPage({ initialReq, returnTopologyCtx, onReturnTopology 
                       <tr key={ob.seq} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                         <td className="px-3 py-2 text-slate-400">{ob.seq}</td>
                         <td className="px-3 py-2">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] ${ob.direction === 'Return' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'}`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] ${ob.direction === 'Return' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40'}`}>
                             {ob.direction}
                           </span>
                         </td>
@@ -860,7 +860,7 @@ export function TraceFlowPage({ initialReq, returnTopologyCtx, onReturnTopology 
                           <div className="font-sans font-medium text-slate-800 dark:text-slate-100">{ob.component}</div>
                           <div className="text-[10px] text-slate-400">{ob.nodeName || 'fabric'}</div>
                         </td>
-                        <td className="px-3 py-2 text-blue-600 dark:text-blue-400">{ob.interface || '—'}</td>
+                        <td className="px-3 py-2 text-[#9E4A05] dark:text-[#FBB040]">{ob.interface || '—'}</td>
                         <td className="px-3 py-2 text-slate-600 dark:text-slate-300 max-w-[320px] truncate" title={ob.detail}>
                           {ob.detail}
                         </td>
@@ -889,7 +889,7 @@ export function TraceFlowPage({ initialReq, returnTopologyCtx, onReturnTopology 
                       setPlayTrigger(0);
                     }}
                     className={`w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition ${
-                      result?.id === h.id ? 'bg-blue-50/60 dark:bg-blue-950/30' : ''
+                      result?.id === h.id ? 'bg-[#FFF4E4]/70 dark:bg-[#F08C18]/15' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">

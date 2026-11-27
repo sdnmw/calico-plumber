@@ -124,10 +124,10 @@ export function ServiceDiagDrawer({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-[#E9E1D6] dark:border-[#2E2721] flex items-start justify-between gap-3 bg-gradient-to-r from-[#FFF9F1] to-[#F4F9FD] dark:from-[#25201C] dark:to-[#1C1815]">
+        <div className="px-5 py-4 border-b border-[#E9E1D6] dark:border-[#2E2721] flex items-start justify-between gap-3 bg-gradient-to-r from-[#FFF9F1] to-[#FFF4E4]/50 dark:from-[#25201C] dark:to-[#1C1815]">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 text-[11px] font-mono font-semibold rounded bg-[#EDF5FC] text-[#155A96] border border-[#C4DCF0] dark:bg-[#155A96]/25 dark:text-[#7EB8E8] dark:border-[#4B84B8]/40">
+              <span className="px-2 py-0.5 text-[11px] font-mono font-semibold rounded bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40">
                 Service
               </span>
               <span className="font-mono text-sm font-bold text-[#201B18] dark:text-[#F5F0EA] truncate">
@@ -273,7 +273,7 @@ export function ServiceDiagDrawer({
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex items-center gap-2 font-mono">
-                                <Server className="w-3.5 h-3.5 text-[#155A96] dark:text-[#7EB8E8]" />
+                                <Server className="w-3.5 h-3.5 text-[#D9720B] dark:text-[#FBB040]" />
                                 <span className="font-semibold text-[#201B18] dark:text-[#F5F0EA]">{mp.name}</span>
                                 <span className="text-[#8C7F73]">{mp.ip || '无 IP'}</span>
                                 <span className="text-[11px] text-[#8C7F73]">@ {mp.nodeName}</span>
@@ -323,7 +323,7 @@ export function ServiceDiagDrawer({
                                         className={`px-1.5 py-0.5 rounded border text-[10px] ${
                                           sk.loopback
                                             ? 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300'
-                                            : 'bg-[#EDF5FC] text-[#155A96] border-[#C4DCF0] dark:bg-[#155A96]/25 dark:text-[#7EB8E8]'
+                                            : 'bg-[#FFF4E4] text-[#9E4A05] border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40'
                                         }`}
                                       >
                                         {sk.protocol} {sk.localAddr}:{sk.port}
@@ -531,7 +531,7 @@ export function ServiceDiagDrawer({
                       <span className="font-bold text-[#201B18] dark:text-[#F5F0EA]">
                         目标后端 Pod 入站策略 (Ingress) · {cmpData.backendPod || cmpData.backendIP || '—'}
                       </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#EDF5FC] text-[#155A96] border border-[#C4DCF0] dark:bg-[#155A96]/25 dark:text-[#7EB8E8]">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40">
                         按配置推算
                       </span>
                     </div>
@@ -557,7 +557,7 @@ function PolicyListBlock({ title, policies }: { title: string; policies: PolicyA
         <span className="font-semibold text-[#574D44] dark:text-[#D5C9BC] flex items-center gap-1">
           <Shield className="w-3 h-3 text-[#F08C18]" /> {title}
         </span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EDF5FC] text-[#155A96] dark:bg-[#155A96]/25 dark:text-[#7EB8E8]">
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40">
           按配置推算
         </span>
       </div>

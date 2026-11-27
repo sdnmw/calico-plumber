@@ -1044,7 +1044,7 @@ export function HealthPage({ onLaunchTrace }: HealthPageProps) {
                                 <span className="font-mono text-[10px] text-[#8C7F73]">
                                   {new Date(ev.timestamp).toLocaleTimeString()}
                                 </span>
-                                <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-[#EDF5FC] text-[#155A96] dark:bg-[#155A96]/25 dark:text-[#7EB8E8]">
+                                <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40">
                                   {ev.category === 'pod_rebuild'
                                     ? 'Pod 变更'
                                     : ev.category === 'endpoint_change'
@@ -1114,7 +1114,7 @@ function getActionButtonMeta(
   if (action === 'compare_policy_sources') {
     return {
       label: '对比双来源路径与策略',
-      cls: 'bg-[#EDF5FC] text-[#155A96] border border-[#C4DCF0] hover:bg-[#DCEBF9] dark:bg-[#155A96]/25 dark:text-[#7EB8E8] dark:border-[#4B84B8]/40',
+      cls: 'bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] hover:bg-[#FDE6C4] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40',
       icon: <GitCompare className="w-3 h-3" />,
     };
   }

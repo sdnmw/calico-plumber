@@ -113,7 +113,7 @@ export default function App() {
       <aside className="w-[216px] shrink-0 bg-white dark:bg-[#1C1815] border-r border-[#E9E1D6] dark:border-[#2E2721] flex flex-col justify-between sticky top-0 h-screen">
         <div>
           {/* Brand Mark */}
-          <div className="h-14 px-4 flex items-center gap-2.5 border-b border-[#F2ECE4] dark:border-[#2A231D] bg-gradient-to-br from-[#FFFBF5] via-white to-[#F4F9FD] dark:from-[#241D17] dark:via-[#1C1815] dark:to-[#171D24]">
+          <div className="h-14 px-4 flex items-center gap-2.5 border-b border-[#F2ECE4] dark:border-[#2A231D] bg-gradient-to-br from-[#FFFBF5] via-white to-[#FFF4E4]/40 dark:from-[#241D17] dark:via-[#1C1815] dark:to-[#1C1612]">
             <img
               src="/logo.png"
               alt="calico-plumber Logo"
@@ -154,7 +154,7 @@ export default function App() {
         <div className="p-3 border-t border-[#F2ECE4] dark:border-[#2A231D] bg-[#FDFBF8] dark:bg-[#191512] space-y-1.5 text-[11px]">
           <div className="flex items-center justify-between text-[#8C7F73]">
             <span>CNI Mode</span>
-            <span className="font-mono font-bold text-[#155A96] dark:text-[#7EB8E8]">
+            <span className="font-mono font-bold text-[#9E4A05] dark:text-[#FBB040]">
               {overview?.primaryEncapMode || 'Detecting...'}
             </span>
           </div>

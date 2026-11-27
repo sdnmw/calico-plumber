@@ -117,7 +117,7 @@ export function IpamSearchPage({
                 <span className="font-mono font-bold text-[#9E4A05] dark:text-[#FBB040]">{pool.utilizationPercent}%</span>
               </div>
               <div className="h-2 rounded-full bg-[#ECE3D7] dark:bg-[#2E2721] overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-[#F08C18] to-[#155A96] rounded-full" style={{ width: `${Math.max(pool.utilizationPercent, 2)}%` }} />
+                <div className="h-full bg-gradient-to-r from-[#F08C18] to-[#D9720B] rounded-full" style={{ width: `${Math.max(pool.utilizationPercent, 2)}%` }} />
               </div>
             </div>
           </SectionCard>

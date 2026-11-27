@@ -157,6 +157,6 @@ function KindIcon({ kind }: { kind: string }) {
     case 'Node':
       return <div className={`${cls} bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300`}><Cpu className="w-4 h-4" /></div>;
     default:
-      return <div className={`${cls} bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400`}><Layers className="w-4 h-4" /></div>;
+      return <div className={`${cls} bg-[#FFF4E4] text-[#9E4A05] border border-[#FAD4A1] dark:bg-[#F08C18]/20 dark:text-[#FBB040] dark:border-[#F08C18]/40`}><Layers className="w-4 h-4" /></div>;
   }
 }
